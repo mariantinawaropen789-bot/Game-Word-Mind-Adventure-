@@ -1,0 +1,2688 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Search Adventure - Yayasan Cahaya Anak Papua</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
+
+        :root {
+            --primary-blue: #0088cc;
+            --accent-yellow: #ffcc00;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0f9ff;
+            background-image: url('https://w7.pngwing.com/pngs/1013/489/png-transparent-green-leaf-frame-wood-background-green-leaves-frame-board-thumbnail.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.4); /* Transparansi disesuaikan agar gambar latar belakang kayu terlihat sangat jelas di semua layar */
+            z-index: -1;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            z-index: 50;
+        }
+
+        /* Menghilangkan warna biru pekat agar gambar latar belakang kayu terlihat indah sejak awal */
+        #home-screen { background: rgba(0, 0, 0, 0.25); } 
+        #category-screen { background: transparent; display: none; overflow-y: auto; }
+        #main-game { display: none; position: relative; z-index: 10; }
+        #croc-game { display: none; position: relative; z-index: 10; }
+        #diff-game { display: none; position: relative; z-index: 10; }
+
+        .title-text {
+            font-family: 'Fredoka One', cursive;
+            font-size: 3rem;
+            color: white;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            margin-bottom: 20px;
+            line-height: 1.1;
+        }
+        @media (min-width: 640px) {
+            .title-text {
+                font-size: 3.5rem;
+            }
+        }
+
+        /* Category Cards Grid */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            width: 100%;
+            padding: 10px;
+        }
+
+        .category-card {
+            background: white;
+            padding: 15px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 4px solid transparent;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .category-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary-blue);
+        }
+
+        .category-icon { font-size: 3rem; margin-bottom: 8px; }
+
+        /* Game UI */
+        .game-board {
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 40px;
+            padding: 20px;
+            border: 8px solid white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            max-width: 1000px;
+            width: 95%;
+            backdrop-filter: blur(5px);
+        }
+
+        .grid-container {
+            background-color: white;
+            border-radius: 20px;
+            display: grid;
+            gap: 4px;
+            padding: 10px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.05);
+            max-width: 290px; /* Mencegah grid terlalu besar agar tidak menghalangi elemen lain */
+            margin: 0 auto;
+        }
+
+        @media (min-width: 640px) {
+            .grid-container {
+                max-width: 340px;
+            }
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #f8f9fa;
+            user-select: none;
+            transition: background-color 0.1s ease, transform 0.2s ease;
+        }
+
+        @media (min-width: 640px) {
+            .cell {
+                font-size: 1.25rem;
+                border-radius: 8px;
+            }
+        }
+
+        .cell.selected { background-color: var(--accent-yellow); color: #5d4037; }
+        .cell.found { background-color: #6bcb77 !important; color: white !important; }
+        
+        /* Memastikan warna oranye menindih warna hijau saat ditarik/diseleksi */
+        .cell.found.selected { background-color: var(--accent-yellow) !important; color: #5d4037 !important; }
+
+        /* Animasi berdenyut untuk petunjuk huruf */
+        @keyframes pulse-clue-animation {
+            0% { transform: scale(1); background-color: var(--accent-yellow); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7); }
+            50% { transform: scale(1.25); background-color: #ff9900; color: white; box-shadow: 0 0 15px 5px rgba(255, 153, 0, 0.5); }
+            100% { transform: scale(1); background-color: var(--accent-yellow); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0); }
+        }
+
+        .pulse-clue {
+            animation: pulse-clue-animation 1s infinite ease-in-out;
+            z-index: 20;
+        }
+
+        .animal-tag {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 90px;
+            font-size: 0.9rem;
+        }
+
+        .animal-tag.completed {
+            background: #6bcb77;
+            color: white;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .btn-action {
+            background-color: var(--accent-yellow);
+            color: #5d4037;
+            padding: 10px 30px;
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #d4aa00;
+            cursor: pointer;
+        }
+
+        .btn-action:active { transform: translateY(3px); box-shadow: 0 1px 0 #d4aa00; }
+
+        /* Tombol Musik Melayang */
+        .music-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background-color: white;
+            border: 3px solid var(--primary-blue);
+            color: var(--primary-blue);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: all 0.2s ease;
+        }
+        .music-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        /* --- STYLES KHUSUS CROC WORD PUZZLE --- */
+        .croc-slot-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+            padding: 5px;
+        }
+
+        .croc-word-row {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .croc-box {
+            width: 34px;
+            height: 34px;
+            border: 3px solid #0088cc;
+            background: #ffffff;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.2rem;
+            color: #333;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .croc-box.filled {
+            background: #6bcb77;
+            border-color: #4cae5c;
+            color: white;
+            transform: scale(1.05) rotate(5deg);
+        }
+
+        .croc-box.revealed {
+            background: #ffe680;
+            border-color: #e6b800;
+            color: #5d4037;
+            transform: scale(1.05);
+        }
+
+        #croc-wheel-canvas {
+            background: rgba(255, 255, 255, 0.8);
+            border: 4px dashed var(--primary-blue);
+            border-radius: 50%;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        /* --- STYLES KHUSUS CARI PERBEDAAN --- */
+        .diff-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .diff-container {
+                flex-direction: row;
+                gap: 20px;
+            }
+        }
+
+        .diff-canvas-wrapper {
+            position: relative;
+            background: #ffffff;
+            border: 5px solid #0088cc;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .diff-marker {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border: 4px solid #6bcb77;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(107, 203, 119, 0.8);
+            animation: pulse-marker 1.2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-marker {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Tombol Pengontrol Musik Latar Belakang -->
+    <button id="music-btn" class="music-toggle" onclick="toggleMusic()">🎵</button>
+
+    <!-- Custom Modal/Popup Cantik Pengganti Alert (Hanya untuk Kemenangan Level) -->
+    <div id="custom-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 hidden z-[100] transition-opacity duration-300">
+        <div class="bg-white rounded-[35px] p-8 max-w-sm w-full mx-4 shadow-2xl border-8 border-blue-400 transform scale-95 transition-transform duration-300 text-center flex flex-col items-center">
+            <div id="modal-icon" class="text-6xl mb-4">🎉</div>
+            <h3 id="modal-title" class="font-black text-2xl text-blue-600 mb-2">Luar Biasa!</h3>
+            <p id="modal-message" class="text-gray-700 mb-6 font-bold leading-relaxed">Pesan petunjuk disini.</p>
+            <button class="btn-action text-lg px-10 py-2" onclick="closeCustomModal()">OKE!</button>
+        </div>
+    </div>
+
+    <!-- Banner Toast Petunjuk (Melayang di atas tanpa menghalangi board di belakangnya) -->
+    <div id="clue-toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-yellow-100 border-4 border-yellow-400 rounded-2xl px-5 py-3 shadow-xl z-50 max-w-sm w-11/12 hidden text-center flex items-center gap-3 animate-bounce">
+        <span class="text-2xl">💡</span>
+        <div class="text-left">
+            <h4 class="font-bold text-yellow-800 text-xs tracking-wider">PETUNJUK AKTIF</h4>
+            <p id="clue-toast-msg" class="text-xs text-yellow-900 font-semibold leading-tight"></p>
+        </div>
+        <button onclick="closeClueToast()" class="ml-auto text-yellow-700 font-black hover:text-yellow-900 text-xl px-1">×</button>
+    </div>
+
+    <!-- 1. Halaman Utama (Ditingkatkan dengan Pilihan Tiga Game Mode) -->
+    <div id="home-screen" class="screen">
+        <img src="https://smartcap.or.id/smp.png" class="w-32 h-36 bg-white p-2 object-contain rounded-full mb-3 shadow-xl">
+        <h1 class="title-text">WORD & MIND<br>ADVENTURE</h1>
+        <p class="text-white font-bold text-sm tracking-widest mb-6 uppercase opacity-90">Yayasan Cahaya Anak Papua</p>
+        
+        <div class="flex flex-col gap-3 w-full max-w-xs">
+            <button class="btn-action text-base py-3 leading-tight shadow-lg" onclick="startMode('SEARCH')">
+                MODE PENCARIAN KATA<br><span class="text-[10px] font-normal text-gray-700">(Word Search Klasik)</span>
+            </button>
+            <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold text-base py-3 rounded-3xl border-4 border-white shadow-lg active:translate-y-1 transition leading-tight" onclick="startMode('CROC')">
+                MODE HUBUNGKAN KATA<br><span class="text-[10px] font-normal text-blue-100">(Gaya Croc Word)</span>
+            </button>
+            <button class="bg-green-500 hover:bg-green-600 text-white font-bold text-base py-3 rounded-3xl border-4 border-white shadow-lg active:translate-y-1 transition leading-tight" onclick="startMode('DIFF')">
+                MODE CARI PERBEDAAN<br><span class="text-[10px] font-normal text-green-100">(Find the Difference)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. Pilih Kategori (Unifikasi untuk Semua Game Mode) -->
+    <div id="category-screen" class="screen">
+        <h2 class="text-3xl font-black text-blue-600 mb-8">PILIH TEMA PERMAINAN</h2>
+        <div class="category-grid">
+            <div class="category-card" onclick="selectCategory('ANIMALS')">
+                <div class="category-icon">🦁</div>
+                <div class="font-bold text-lg text-gray-800">HEWAN</div>
+                <div class="text-xs text-blue-500 mt-1" id="count-ANIMALS">200 Kata</div>
+            </div>
+            <div class="category-card" onclick="selectCategory('COUNTRIES')">
+                <div class="category-icon">🌍</div>
+                <div class="font-bold text-lg text-gray-800">NEGARA</div>
+                <div class="text-xs text-blue-500 mt-1" id="count-COUNTRIES">200 Kata</div>
+            </div>
+            <div class="category-card" onclick="selectCategory('BODY')">
+                <div class="category-icon">🧠</div>
+                <div class="font-bold text-lg text-gray-800">ORGAN TUBUH</div>
+                <div class="text-xs text-blue-500 mt-1" id="count-BODY">200 Kata</div>
+            </div>
+            <div class="category-card" onclick="selectCategory('FOODS')">
+                <div class="category-icon">🍎</div>
+                <div class="font-bold text-lg text-gray-800">BUAH & SAYUR</div>
+                <div class="text-xs text-blue-500 mt-1" id="count-FOODS">200 Kata</div>
+            </div>
+            <div class="category-card" onclick="selectCategory('OBJECTS')">
+                <div class="category-icon">🎒</div>
+                <div class="font-bold text-lg text-gray-800">BENDA SEKITAR</div>
+                <div class="text-xs text-blue-500 mt-1" id="count-OBJECTS">200 Kata</div>
+            </div>
+        </div>
+        <button class="mt-8 text-blue-500 font-bold hover:underline" onclick="backToHome()">← KEMBALI</button>
+    </div>
+
+    <!-- 3. Area Game 1: Word Search -->
+    <div id="main-game" class="game-board flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-6">
+            <div class="bg-blue-500 text-white px-5 py-1.5 rounded-full font-bold shadow text-sm sm:text-base" id="level-text">LEVEL 1</div>
+            <div class="text-blue-600 font-black text-lg sm:text-xl" id="category-label">TEMA</div>
+            <div class="bg-white border-2 border-blue-400 px-5 py-1.5 rounded-full font-bold shadow text-blue-600 text-sm sm:text-base">SKOR: <span id="score-val">0</span></div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-6 w-full items-center lg:items-stretch">
+            <div class="w-full lg:w-1/4">
+                <div class="bg-white bg-opacity-50 p-3 rounded-2xl">
+                    <h3 class="font-bold text-blue-800 mb-3 text-center text-sm sm:text-base">CARI KATA:</h3>
+                    <div id="word-list" class="flex flex-wrap gap-2 justify-center"></div>
+                </div>
+            </div>
+
+            <div class="w-full lg:w-2/4 flex flex-col items-center justify-center">
+                <div id="word-grid" class="grid-container w-full shadow-2xl border-4 border-white"></div>
+                <div id="current-word" class="mt-3 bg-white px-6 py-1 rounded-full font-black text-blue-600 tracking-widest text-lg shadow-md border border-blue-100">...</div>
+            </div>
+
+            <div class="w-full lg:w-1/4 flex flex-col gap-3 justify-center">
+                <button class="btn-action w-full text-sm sm:text-base" onclick="giveClue()">BANTUAN (CLUE)</button>
+                <button class="bg-red-400 text-white py-2.5 rounded-full font-bold shadow-md hover:bg-red-500 transition text-sm sm:text-base" onclick="showCategories()">GANTI TEMA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Area Game 2: Croc Word Puzzle -->
+    <div id="croc-game" class="game-board flex flex-col items-center max-w-[500px] w-full mx-auto">
+        <div class="w-full flex justify-between items-center mb-6">
+            <div class="bg-green-500 text-white px-5 py-1.5 rounded-full font-bold shadow text-sm" id="croc-level-text">LEVEL 1</div>
+            <div class="text-green-600 font-black text-xs sm:text-sm uppercase tracking-wider text-center flex-1 mx-2" id="croc-category-label">Croc Word 🐊</div>
+            <div class="bg-white border-2 border-green-400 px-5 py-1.5 rounded-full font-bold shadow text-green-600 text-sm">SKOR: <span id="croc-score-val">0</span></div>
+        </div>
+
+        <div class="w-full bg-white bg-opacity-50 p-4 rounded-3xl mb-4 flex flex-col items-center">
+            <h3 class="font-bold text-green-800 mb-3 text-sm text-center">TEKA-TEKI SILANG:</h3>
+            <div id="croc-slots" class="croc-slot-container"></div>
+        </div>
+
+        <div id="croc-current-word" class="h-8 mb-4 bg-white px-6 py-1 rounded-full font-black text-green-600 tracking-widest text-lg shadow-md border border-green-100 min-w-[80px] text-center">...</div>
+
+        <div class="flex flex-col items-center justify-center mb-4">
+            <canvas id="croc-wheel-canvas" width="240" height="240"></canvas>
+        </div>
+
+        <div class="w-full grid grid-cols-2 gap-3 mt-2">
+            <button class="bg-yellow-400 text-yellow-900 border-b-4 border-yellow-600 py-2.5 rounded-full font-bold shadow-md hover:bg-yellow-500 transition text-sm" onclick="giveCrocClue()">BANTUAN (CLUE)</button>
+            <button class="bg-red-400 text-white border-b-4 border-red-600 py-2.5 rounded-full font-bold shadow-md hover:bg-red-500 transition text-sm" onclick="backToHome()">KEMBALI KE MENU</button>
+        </div>
+    </div>
+
+    <!-- 5. Area Game 3: Cari Perbedaan (Find the Difference - MODIFIKASI TEMA DINAMIS) -->
+    <div id="diff-game" class="game-board flex flex-col items-center max-w-[950px] w-full mx-auto">
+        <div class="w-full flex justify-between items-center mb-4">
+            <div class="bg-purple-600 text-white px-5 py-1.5 rounded-full font-bold shadow text-xs sm:text-sm" id="diff-level-text">LEVEL 1</div>
+            <div class="text-purple-700 font-black text-xs sm:text-sm uppercase tracking-wider text-center flex-1 mx-2" id="diff-category-label">Cari 5 Perbedaan 🔍</div>
+            <div class="bg-white border-2 border-purple-400 px-5 py-1.5 rounded-full font-bold shadow text-purple-600 text-xs sm:text-sm">SISA: <span id="diff-needed-val">5</span></div>
+        </div>
+
+        <!-- Wadah Dua Gambar Berdampingan -->
+        <div class="diff-container w-full">
+            <!-- Gambar Asli (Kiri) -->
+            <div class="flex flex-col items-center">
+                <span class="text-xs font-bold text-gray-500 mb-1">GAMBAR KIRI</span>
+                <div class="diff-canvas-wrapper" id="diff-left-wrapper">
+                    <canvas id="diff-canvas-left" width="340" height="240"></canvas>
+                </div>
+            </div>
+
+            <!-- Gambar dengan Modifikasi Perbedaan (Kanan) -->
+            <div class="flex flex-col items-center">
+                <span class="text-xs font-bold text-gray-500 mb-1">GAMBAR KANAN (TEMUKAN PERBEDAAN)</span>
+                <div class="diff-canvas-wrapper" id="diff-right-wrapper">
+                    <canvas id="diff-canvas-right" width="340" height="240"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tombol Aksi Bawah Cari Perbedaan -->
+        <div class="w-full grid grid-cols-2 gap-3 mt-6 max-w-[400px]">
+            <button class="bg-yellow-400 text-yellow-900 border-b-4 border-yellow-600 py-2.5 rounded-full font-bold shadow-md hover:bg-yellow-500 transition text-sm animate-pulse" onclick="giveDiffClue()">BANTUAN (CLUE)</button>
+            <button class="bg-red-400 text-white border-b-4 border-red-600 py-2.5 rounded-full font-bold shadow-md hover:bg-red-500 transition text-sm" onclick="backToHome()">KEMBALI KE MENU</button>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA UTAMA WORD SEARCH, CROC WORD, & CARI PERBEDAAN ---
+        
+        // Database 1.000 kata Word Search & Croc Word (Masing-masing 200 kata)
+        const DATABASE = {
+            'ANIMALS': [
+                "LION", "TIGER", "BEAR", "WOLF", "DEER", "HARE", "FOX", "BULL", "GOAT", "RAM", "LAMB", "PIG", "BOAR", "HORSE", "COLT", "PONY", "MULE", "ELK", "MOOSE", "COUGAR",
+                "LYNX", "PUMA", "SEAL", "WALRUS", "OTTER", "BADGER", "WEASEL", "MINK", "SABLE", "MARTEN", "FERRET", "SKUNK", "RAT", "MOUSE", "VOLE", "MOLE", "BAT", "SHREW", "BEAVER", "COYOTE",
+                "JACKAL", "HYENA", "CHEETAH", "LEOPARD", "JAGUAR", "PANTHER", "OCELOT", "CARACAL", "SERVAL", "GORILLA", "CHIMP", "BONOBO", "ORANG", "BABOON", "GIBBON", "LEMUR", "LORIS", "MEERKAT", "CIVET", "GENET",
+                "LLAMA", "ALPACA", "VICUNA", "CAMEL", "GIRAFFE", "OKAPI", "ZEBRA", "DONKEY", "HIPPO", "RHINO", "BISON", "YAK", "BUFFALO", "GAUR", "ANOA", "TAPIR", "MANATEE", "DUGONG", "WHALE", "DOLPHIN",
+                "ORCA", "SHARK", "CODBISH", "TUNA", "SALMON", "TROUT", "BASS", "PIKE", "CARP", "EEL", "LOACH", "GUPPY", "TETRA", "DISCUS", "ANGEL", "BETTA", "CLOWN", "GOBY", "WRASSE", "MULLET",
+                "SARDINE", "HERRING", "WAHOO", "COBIA", "TARPON", "PERCH", "WALLEYE", "SAUGER", "BOWFIN", "STURGEON", "SHAD", "SMELT", "CISCO", "WHITE", "GRAY", "CHAR", "CHUB", "DACE", "ROACH", "RUDD",
+                "TENCH", "BREAM", "BARBEL", "MINNOW", "SHINER", "KOI", "BARB", "DANIO", "RASBORA", "PLECO", "OTOCIN", "BANJO", "ELECTRIC", "PIRANHA", "PACU", "AROWANA", "DOGFISH", "MAKO", "BLUE", "NURSE",
+                "EAGLE", "HAWK", "FALCON", "OWL", "HERON", "EGRET", "STORK", "IBIS", "SPOON", "SWAN", "GOOSE", "DUCK", "TEAL", "LOON", "GREBE", "PELICAN", "GANNET", "BOOBY", "GULL", "TERN",
+                "ALBATROS", "PETREL", "SHEAR", "FRIGATE", "TROPIC", "PUFFIN", "AUK", "MURRE", "GUILLE", "RAVEN", "CROW", "JAY", "MAGPIE", "ROBIN", "THRUSH", "BLUEBIRD", "FINCH", "SPARROW", "WARBLER", "VIREO",
+                "TANAGER", "ORIOLE", "GRACKLE", "BLACK", "MEADOW", "STARLING", "WAXWING", "SHRIKE", "SWALLOW", "MARTIN", "SWIFT", "HUMMER", "NIGHT", "CHUCK", "WHIP", "FROG", "TOAD", "NEWT", "SNAKE", "VIPER"
+            ],
+            'COUNTRIES': [
+                "JAPAN", "BRAZIL", "EGYPT", "FRANCE", "CANADA", "MEXICO", "INDIA", "GERMANY", "ITALY", "SPAIN", "CHINA", "RUSSIA", "TURKEY", "SWEDEN", "NORWAY", "POLAND", "GREECE", "CUBA", "PERU", "CHILE",
+                "ANGOLA", "BENIN", "GHANA", "GUINEA", "KENYA", "LIBYA", "MALI", "NIGER", "RWANDA", "SUDAN", "TOGO", "UGANDA", "ZAMBIA", "YEMEN", "OMAN", "IRAQ", "IRAN", "SYRIA", "JORDAN", "QATAR",
+                "NEPAL", "BHUTAN", "BURMA", "LAOS", "VIETNAM", "BRUNEI", "TAIWAN", "KOREA", "CYPRUS", "LATVIA", "MONACO", "REPUBLIC", "BELGIUM", "DENMARK", "FINLAND", "ICELAND", "IRELAND", "AUSTRIA", "HUNGARY", "ROMANIA",
+                "SERBIA", "ALBANIA", "ANDORRA", "ARMENIA", "GEORGIA", "UKRAINE", "ESTONIA", "BELARUS", "MOLDOVA", "CROATIA", "SENEGAL", "SOMALIA", "MOROCCO", "ALGERIA", "TUNISIA", "ERITREA", "BURUNDI", "LESOTHO", "NAMIBIA", "SENEGAL",
+                "NIGERia", "LIBERIA", "CAMEROON", "CHAD", "CONGO", "GABON", "BOLIVIA", "ECUADOR", "URUGUAY", "GUYANA", "SURINAME", "PANAMA", "HONDURAS", "BELIZE", "BAHAMAS", "JAMAICA", "HAITI", "DOMINICA", "BARBADOS", "GRENADA",
+                "SAMOA", "TONGA", "TUVALU", "VANUATU", "KIRIBATI", "NAURU", "PALAU", "FIJI", "MALTA", "PORTUGAL", "SWISS", "BOHEMIA", "VATICAN", "SANMARIN", "SVALBARD", "KOSOVO", "TIBET", "SIKKIM", "KASHMIR", "CEYLON",
+                "ZANZIBAR", "RHODESIA", "ABYSSINIA", "PERSIA", "SIAM", "PRUSSIA", "SAXONY", "BAVARIA", "ALSACE", "LORRAINE", "SARDINIA", "SICILY", "CORSICA", "CRETE", "CYPRUS", "MALDIVES", "BAHRAIN", "KUWAIT", "SINGAPOR", "MALAYSIA",
+                "THAILAND", "CAMBODIA", "MONGOLIA", "PAKISTAN", "GEORGIA", "AUSTRIAL", "TASMANIA", "ZEALAND", "SUMATRA", "BORNEO", "CELEBES", "MINDANAO", "LUZON", "OKINAWA", "HOKKAIDO", "HONSHU", "SHIKOKU", "KYUSHU", "FORMOSE", "REUNION",
+                "CURACAO", "BERMUDA", "BAHAMAS", "BARBUDA", "ANGUILLA", "MONTSERR", "GUADELOU", "MARTINIQ", "ARUBA", "BONAIRE", "TOBAGO", "TRINIDAD", "FALKLAND", "GEORGIA", "SANDWICH", "GALAPAGO", "HAWAII", "TAHITI", "MARQUESA", "SAMOA",
+                "MIDWAY", "WAKE", "GUAM", "SAIPAN", "TINIAN", "ROTA", "PALAU", "YAP", "CHUUK", "POHNPEI", "KOSRAE", "MAJURO", "TARAWA", "FUNAFUTI", "NUKUALOF", "APIA", "PAGO", "NOUMEA", "SUVA", "PORTVILA"
+            ],
+            'BODY': [
+                "BRAIN", "HEART", "LUNGS", "KIDNEY", "LIVER", "STOMACH", "BONE", "MUSCLE", "EYE", "EAR", "TONGUE", "NOSE", "HAIR", "SKIN", "FACE", "NECK", "BACK", "CHEST", "ARM", "ELBOW",
+                "WRIST", "HAND", "FINGER", "THUMB", "HIP", "LEG", "KNEE", "ANKLE", "FOOT", "TOE", "HEEL", "JAW", "CHIN", "CHEEK", "BROW", "LASH", "LID", "GUM", "TOOTH", "TEETH",
+                "THROAT", "TONSIL", "PALATE", "SKULL", "RIB", "SPINE", "JOINT", "NERVE", "VEIN", "BLOOD", "CELL", "GLAND", "PORE", "NAIL", "SCALP", "WAIST", "BEARD", "MUSTACHE", "LIVER", "SPLEEN",
+                "BILE", "STOMACH", "COLON", "BOWEL", "PELVIS", "FEMUR", "TIBIA", "FIBULA", "RADIUS", "ULNA", "CLAVICLE", "STERNUM", "PATELLA", "CARPAL", "TARSAL", "TENDON", "FASCIA", "MARROW", "PLASMA", "SERUM",
+                "SALIVA", "SWEAT", "TEAR", "MUCUS", "SEBUM", "KERATIN", "MELANIN", "ENZYME", "HORMONE", "INSULIN", "THYROID", "ADRENAL", "THYMUS", "SENSORY", "MOTOR", "CORTEX", "NEURON", "SYNAPSE", "AXON", "MYELIN",
+                "RETINA", "CORNEA", "SCLERA", "IRIS", "PUPIL", "LENS", "COCHLEA", "EARDRUM", "PINNA", "COCHLEAR", "OLFACTORY", "TRACHEA", "BRONCHUS", "ALVEOLUS", "PLEURA", "DIAPHRAGM", "AORTA", "ARTERIOL", "CAPILLAR", "VENULE",
+                "ATRIUM", "VALVE", "ESOPHAGU", "DUODENUM", "JEJUNUM", "ILEUM", "CECUM", "APPENDIX", "RECTUM", "SPHINCTE", "URETER", "URETHRA", "BLADDER", "NEPHRON", "GLOMERUL", "DERMIS", "EPIDERM", "FOLLICLE", "COLLAGEN", "ELASTIN",
+                "CARTILAG", "LIGAMENT", "SYNOVIUM", "MENISCUS", "BURSA", "VERTEBRA", "SACRUM", "COCCYX", "SCAPULA", "HUMERUS", "PHALANX", "MAXILLA", "MANDIBLE", "ZYGOMA", "OCCIPUT", "FRONTAL", "PARIETAL", "TEMPORAL", "SPHENOID", "ETHMOID",
+                "AUDITORY", "GUSTATOR", "TACTILE", "CORPUSCL", "RECEPTOR", "KIDNEYS", "LUNGS", "LIVERS", "SPLEENS", "THYROIDS", "PITUITAR", "THALAMUS", "AMYGDALA", "STRIATUM", "MENINGES", "MYOCARD", "PERICARD", "ENDOCARD", "ALVEOLAR", "BRONCHIAL",
+                "GASTRIC", "HEPATIC", "RENAL", "SPLENIC", "CARDIAC", "VASCULAR", "NEURAL", "SKELETAL", "CUTANEOU", "EPITHELI", "ENDOTHEL", "LYMPH", "NODE", "VESSEL", "DUCT", "AMNION", "CHORION", "PLACENTA", "UMBILIC", "FETUS"
+            ],
+            'FOODS': [
+                "APPLE", "BANANA", "CHERRY", "GRAPE", "MANGO", "ORANGE", "PEACH", "PEAR", "PLUM", "BERRY", "MELON", "LEMON", "LIME", "FIGS", "DATE", "KIWI", "PAPAYA", "GUAVA", "TOMATO", "POTATO",
+                "CARROT", "ONION", "GARLIC", "GINGER", "PEPPER", "RADISH", "TURNIP", "BEET", "CELERY", "SPINACH", "CABBAGE", "LETTUCE", "BROCCOLI", "PEAS", "BEANS", "CORN", "WHEAT", "RICE", "OATS", "BARLEY",
+                "MILLET", "QUINOA", "RYE", "SPELT", "OLIVE", "AVOCADO", "COCONUT", "ALMOND", "WALNUT", "PEANUT", "CASHEW", "PECAN", "HAZEL", "CHESTNUT", "PINE", "ACORN", "PUMPKIN", "SQUASH", "MELON", "CUCUMBER",
+                "EGGPLANT", "OKRA", "CHILE", "FENNEL", "CHIVE", "LEEK", "SHALLOT", "PARSLEY", "BASIL", "OREGANO", "THYME", "ROSEMARY", "SAGE", "MINT", "DILL", "CILANTRO", "ANISE", "CLOVE", "NUTMEG", "GINGER",
+                "BREAD", "CHEESE", "BUTTER", "CREAM", "YOGURT", "MILK", "WHEY", "CURD", "HONEY", "SUGAR", "SALT", "PEPPER", "SAUCE", "SOUP", "STEW", "SALAD", "PASTA", "NOODLE", "PIZZA", "BURGER",
+                "TACO", "SUSHI", "CURRY", "KEBAB", "STEAK", "ROAST", "GRAVY", "BROTH", "JELLY", "JAM", "SYRUP", "HONEY", "CANDY", "CAKE", "PIE", "TART", "COOKIE", "DONUT", "PASTRY", "MUDDIN",
+                "BAGEL", "TOAST", "WAFFLE", "CREPE", "SCONE", "BISCUIT", "CRACKER", "PRETZEL", "CHIPS", "POPCORN", "NUTS", "SEEDS", "GRAIN", "FLOUR", "YEAST", "BAKING", "POWDER", "SODA", "VINEGAR", "OIL",
+                "MUSTARD", "KETCHUP", "MAYONNAI", "RELISH", "SALSA", "HUMMUS", "PESTO", "BUTTER", "MARGARIN", "LARD", "TALLOW", "SUET", "BACON", "HAM", "SAUSAGE", "SALAMI", "PORK", "BEEF", "VEAL", "LAMB",
+                "MUTTON", "CHICKEN", "TURKEY", "DUCK", "GOOSE", "PHEASANT", "QUAIL", "GROUSE", "RABBIT", "VENISON", "BISON", "ELK", "BOAR", "FISH", "SHRIMP", "CRAB", "LOBSTER", "CLAM", "OYSTER", "MUSSEL",
+                "SCALLOP", "SQUID", "OCTOPUS", "SNAIL", "FROG", "TURTLE", "EGGS", "YOLK", "WHITE", "CHEESE", "TOFU", "TEMPEH", "SEITAN", "MISO", "SHOYU", "TAMARI", "WASABI", "GINGER", "SEAWEED", "NORI"
+            ],
+            'OBJECTS': [
+                "PENCIL", "ERASER", "RULER", "BOOK", "PAPER", "PEN", "BAG", "DESK", "CHAIR", "TABLE", "LAMP", "PHONE", "WATCH", "CLOCK", "KEY", "COIN", "RING", "GLASS", "CUP", "PLATE",
+                "BOWL", "SPOON", "FORK", "KNIFE", "BOTTLE", "BOX", "JAR", "CAN", "BAG", "CASE", "CHEST", "DESK", "SHELF", "BED", "SOFA", "COUCH", "BENCH", "STOOL", "RUG", "MAT",
+                "DOOR", "GATE", "WINDOW", "WALL", "ROOF", "FLOOR", "CEILING", "STAIR", "STEPS", "LOCK", "BOLT", "HINGE", "KNOB", "HOOK", "NAIL", "SCREW", "BOLT", "NUT", "WASHER", "PIN",
+                "NEEDLE", "THREAD", "YARN", "ROPE", "CORD", "WIRE", "CHAIN", "CABLE", "PLUG", "SOCKET", "SWITCH", "BULB", "TUBE", "WIRE", "CORD", "HOSE", "PIPE", "VALVE", "TAP", "FAUCET",
+                "SINK", "BASIN", "TUB", "SHOWER", "TOILET", "BRUSH", "COMB", "MIRROR", "SOAP", "TOWEL", "CLOTH", "RAG", "SPONGE", "BROOM", "MOP", "DUSTER", "PAN", "POT", "KETTLE", "OVEN",
+                "STOVE", "FRIDGE", "FREEZER", "TOASTER", "BLENDER", "MIXER", "SCALE", "TIMER", "MATCH", "LIGHTER", "CANDLE", "TORCH", "LANTERN", "LAMP", "SHADE", "GLOBE", "BULB", "BATTERY", "CELL", "CHARGER",
+                "RADIO", "PHONE", "TABLET", "LAPTOP", "SCREEN", "MOUSE", "KEYBOARD", "PRINTER", "CAMERA", "LENS", "GLASSES", "GOGGLES", "HELMET", "MASK", "GLOVES", "BOOTS", "SHOES", "SOCKS", "PANTS", "SHIRT",
+                "COAT", "JACKET", "VEST", "HAT", "CAP", "HOOD", "SCARF", "BELT", "STRAP", "BUCKLE", "ZIPPER", "BUTTON", "POCKET", "BAG", "PURSE", "WALLET", "CARD", "COIN", "BILL", "COIN",
+                "STAMP", "LETTER", "ENVELOPE", "PARCEL", "BOX", "CRATE", "BARREL", "DRUM", "PAIL", "BUCKET", "JUG", "PITCHER", "FLASK", "VIAL", "TUBE", "BOTTLE", "CORK", "PLUG", "CAP", "LID",
+                "SEAL", "TAPE", "GLUE", "PASTE", "PAINT", "BRUSH", "ROLLER", "SPRAY", "CAN", "TIN", "FOIL", "WRAP", "BAG", "SACK", "POUCH", "CASE", "SHEATH", "HOLSTER", "STRAP", "BELT"
+            ]
+        };
+
+        // --- VARIABEL STATE PERMAINAN ---
+        let gameMode = 'SEARCH'; // 'SEARCH', 'CROC', atau 'DIFF'
+        
+        // State Word Search
+        let currentCategory = 'ANIMALS';
+        let currentLevel = 1;
+        let score = 0;
+        let wordsInLevel = [];
+        let foundWords = [];
+        let gridSize = 10;
+        let grid = [];
+        let selectedCells = [];
+        let isSelecting = false;
+        let isModalActive = false;
+        let wordStartingCoords = {};
+        let usedWords = { 'ANIMALS': [], 'COUNTRIES': [], 'BODY': [], 'FOODS': [], 'OBJECTS': [] };
+
+        // State Croc Word Puzzle
+        let crocLevelIndex = 1;
+        let crocScore = 0;
+        let crocFoundWords = [];
+        let crocSelectedLetters = [];
+        let isCrocConnecting = false;
+        let crocActiveLetters = [];
+        let crocActiveLevelWords = [];
+
+        // State Cari Perbedaan (Find the Difference)
+        let diffLevelIndex = 1;
+        let diffScore = 0;
+        let totalDifferences = 5;
+        let foundDifferences = []; // Menyimpan objek-objek perbedaan yang berhasil ditemukan oleh user
+        let activeDifferences = []; // Berisi 5 perbedaan acak level aktif
+
+        // --- AUDIO CONTROLLER (WEB AUDIO API) ---
+        let audioCtx = null;
+        let isMusicPlaying = false;
+        let musicInterval = null;
+        let musicVolumeNode = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                musicVolumeNode = audioCtx.createGain();
+                musicVolumeNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                musicVolumeNode.connect(audioCtx.destination);
+            }
+        }
+
+        function playBackgroundMusic() {
+            initAudio();
+            if (isMusicPlaying) return;
+            isMusicPlaying = true;
+            document.getElementById('music-btn').textContent = "🎵";
+
+            const tempo = 300; 
+            const melody = [261.63, 329.63, 392.00, 440.00, 523.25, 440.00, 392.00, 329.63];
+            let noteIndex = 0;
+
+            musicInterval = setInterval(() => {
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(melody[noteIndex], audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(musicVolumeNode);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+                
+                noteIndex = (noteIndex + 1) % melody.length;
+            }, tempo);
+        }
+
+        function stopBackgroundMusic() {
+            if (musicInterval) {
+                clearInterval(musicInterval);
+                musicInterval = null;
+            }
+            isMusicPlaying = false;
+            document.getElementById('music-btn').textContent = "🔇";
+        }
+
+        function toggleMusic() {
+            initAudio();
+            if (isMusicPlaying) {
+                stopBackgroundMusic();
+            } else {
+                playBackgroundMusic();
+            }
+        }
+
+        // --- SUARA EFEK KHUSUS ---
+        function playSelectSound() {
+            if (!audioCtx || !isMusicPlaying) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            const offset = (gameMode === 'SEARCH') ? selectedCells.length : crocSelectedLetters.length;
+            osc.frequency.setValueAtTime(400 + (offset * 40), audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playSuccessSound() {
+            if (!audioCtx || !isMusicPlaying) return;
+            const now = audioCtx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + index * 0.08);
+                gain.gain.setValueAtTime(0.12, now + index * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + index * 0.08 + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + index * 0.08);
+                osc.stop(now + index * 0.08 + 0.2);
+            });
+        }
+
+        function playLevelWinSound() {
+            if (!audioCtx || !isMusicPlaying) return;
+            const now = audioCtx.currentTime;
+            const notes = [523.25, 523.25, 523.25, 659.25, 587.33, 659.25, 783.99, 1046.50];
+            const beats = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9];
+            notes.forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + beats[index]);
+                gain.gain.setValueAtTime(0.15, now + beats[index]);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + beats[index] + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + beats[index]);
+                osc.stop(now + beats[index] + 0.4);
+            });
+        }
+
+        // --- NAVIGASI MODE PERMAINAN ---
+        function startMode(mode) {
+            initAudio();
+            playBackgroundMusic();
+            gameMode = mode;
+            document.getElementById('home-screen').style.display = 'none';
+            showCategories(); // Semua mode sekarang melalui layar pemilihan tema yang sama!
+        }
+
+        function backToHome() {
+            closeClueToast();
+            document.getElementById('category-screen').style.display = 'none';
+            document.getElementById('main-game').style.display = 'none';
+            document.getElementById('croc-game').style.display = 'none';
+            document.getElementById('diff-game').style.display = 'none';
+            document.getElementById('home-screen').style.display = 'flex';
+        }
+
+        // --- SISTEM NOTIFIKASI MODAL & TOAST ---
+        let modalCallback = null;
+        function showCustomModal(title, message, icon = '💡', callback = null) {
+            isModalActive = true;
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            document.getElementById('modal-icon').textContent = icon;
+            document.getElementById('custom-modal').classList.remove('hidden');
+            modalCallback = callback;
+        }
+
+        function closeCustomModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+            isModalActive = false;
+            if (modalCallback) {
+                modalCallback();
+                modalCallback = null;
+            }
+        }
+
+        let toastTimeout = null;
+        function showClueToast(message) {
+            const toast = document.getElementById('clue-toast');
+            document.getElementById('clue-toast-msg').textContent = message;
+            toast.classList.remove('hidden');
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => { closeClueToast(); }, 5000);
+        }
+
+        function closeClueToast() {
+            document.getElementById('clue-toast').classList.add('hidden');
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+                toastTimeout = null;
+            }
+        }
+
+        // --- SISTEM NAVIGASI & SELEKSI TEMA ---
+        function showCategories() {
+            document.getElementById('home-screen').style.display = 'none';
+            document.getElementById('main-game').style.display = 'none';
+            document.getElementById('croc-game').style.display = 'none';
+            document.getElementById('diff-game').style.display = 'none';
+            document.getElementById('category-screen').style.display = 'flex';
+            updateCategoryCounters();
+        }
+
+        function updateCategoryCounters() {
+            Object.keys(DATABASE).forEach(cat => {
+                const total = DATABASE[cat].length;
+                const played = usedWords[cat].length;
+                const remaining = total - played;
+                document.getElementById(`count-${cat}`).textContent = `${remaining} Kata Tersisa`;
+            });
+        }
+
+        function selectCategory(cat) {
+            currentCategory = cat;
+            document.getElementById('category-screen').style.display = 'none';
+            
+            let labelText = 'TEMA: ';
+            let crocLabelText = 'TEMA: ';
+            let diffLabelText = 'TEMA: ';
+            if (cat === 'ANIMALS') {
+                labelText += 'HEWAN 🦁';
+                crocLabelText += 'HEWAN 🦁';
+                diffLabelText += 'HEWAN & ALAM 🦁';
+            } else if (cat === 'COUNTRIES') {
+                labelText += 'NEGARA 🌍';
+                crocLabelText += 'NEGARA 🌍';
+                diffLabelText += 'PEMANDANGAN NEGARA 🌍';
+            } else if (cat === 'BODY') {
+                labelText += 'ORGAN TUBUH 🧠';
+                crocLabelText += 'ORGAN TUBUH 🧠';
+                diffLabelText += 'DUNIA BIOLOGI 🧠';
+            } else if (cat === 'FOODS') {
+                labelText += 'BUAH & SAYUR 🍎';
+                crocLabelText += 'BUAH & SAYUR 🍎';
+                diffLabelText += 'KEBUN BUAH & SAYUR 🍎';
+            } else if (cat === 'OBJECTS') {
+                labelText += 'BENDA SEKITAR 🎒';
+                crocLabelText += 'BENDA SEKITAR 🎒';
+                diffLabelText += 'RUANGAN SEKITAR 🎒';
+            }
+            
+            if (gameMode === 'SEARCH') {
+                document.getElementById('main-game').style.display = 'flex';
+                document.getElementById('category-label').textContent = labelText;
+                currentLevel = 1; // Reset ke level 1 tiap ganti tema
+                initLevel();
+            } else if (gameMode === 'CROC') {
+                document.getElementById('croc-game').style.display = 'flex';
+                document.getElementById('croc-category-label').textContent = crocLabelText;
+                crocLevelIndex = 1; // Reset ke level 1 tiap ganti tema
+                initCrocLevel();
+            } else if (gameMode === 'DIFF') {
+                document.getElementById('diff-game').style.display = 'flex';
+                document.getElementById('diff-category-label').textContent = `CARI PERBEDAAN - ${diffLabelText}`;
+                diffLevelIndex = 1; // Reset ke level 1 tiap ganti tema
+                initDiffLevel();
+            }
+        }
+
+        // --- MODE 1: GAMEPLAY WORD SEARCH ---
+        function initLevel() {
+            const allWords = DATABASE[currentCategory];
+            let availableWords = allWords.filter(w => !usedWords[currentCategory].includes(w));
+            
+            if (availableWords.length < 5) {
+                usedWords[currentCategory] = [];
+                availableWords = allWords;
+            }
+
+            wordsInLevel = [...availableWords].sort(() => 0.5 - Math.random()).slice(0, 5);
+            foundWords = [];
+            gridSize = 10;
+            wordStartingCoords = {};
+            isModalActive = false;
+            closeClueToast();
+            
+            document.getElementById('level-text').textContent = `LEVEL ${currentLevel}`;
+            generateGrid();
+            renderWordList();
+            updateDisplay();
+        }
+
+        function generateGrid() {
+            const gridEl = document.getElementById('word-grid');
+            gridEl.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            grid = Array(gridSize).fill().map(() => Array(gridSize).fill(''));
+
+            wordsInLevel.forEach(word => {
+                let placed = false;
+                let attempts = 0;
+                while (!placed && attempts < 150) {
+                    attempts++;
+                    const dir = Math.random() > 0.5 ? 'H' : 'V';
+                    const r = Math.floor(Math.random() * (dir === 'V' ? gridSize - word.length : gridSize));
+                    const c = Math.floor(Math.random() * (dir === 'H' ? gridSize - word.length : gridSize));
+                    
+                    let canFit = true;
+                    for (let i = 0; i < word.length; i++) {
+                        const rr = dir === 'V' ? r + i : r;
+                        const cc = dir === 'H' ? c + i : c;
+                        if (grid[rr][cc] !== '' && grid[rr][cc] !== word[i]) { canFit = false; break; }
+                    }
+
+                    if (canFit) {
+                        for (let i = 0; i < word.length; i++) {
+                            const rr = dir === 'V' ? r + i : r;
+                            const cc = dir === 'H' ? c + i : c;
+                            grid[rr][cc] = word[i];
+                        }
+                        wordStartingCoords[word] = { r, c };
+                        placed = true;
+                    }
+                }
+            });
+
+            const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            gridEl.innerHTML = '';
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    if (grid[r][c] === '') grid[r][c] = letters[Math.floor(Math.random() * 26)];
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.textContent = grid[r][c];
+                    cell.id = `cell-${r}-${c}`;
+                    
+                    cell.onmousedown = () => startSelect(r, c, cell);
+                    cell.onmouseover = () => moveSelect(r, c, cell);
+                    
+                    cell.ontouchstart = (e) => { 
+                        if (isModalActive) return;
+                        e.preventDefault(); 
+                        startSelect(r, c, cell); 
+                    };
+                    cell.ontouchmove = (e) => {
+                        if (isModalActive) return;
+                        e.preventDefault();
+                        const touch = e.touches[0];
+                        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                        if (target && target.classList.contains('cell')) {
+                            const parts = target.id.split('-');
+                            if (parts.length === 3) {
+                                moveSelect(parseInt(parts[1]), parseInt(parts[2]), target);
+                            }
+                        }
+                    };
+                    gridEl.appendChild(cell);
+                }
+            }
+            window.onmouseup = endSelect;
+            gridEl.ontouchend = endSelect;
+        }
+
+        function renderWordList() {
+            const list = document.getElementById('word-list');
+            list.innerHTML = '';
+            wordsInLevel.forEach(w => {
+                const tag = document.createElement('div');
+                tag.className = 'animal-tag';
+                tag.id = `tag-${w}`;
+                tag.textContent = w;
+                list.appendChild(tag);
+            });
+        }
+
+        function startSelect(r, c, el) {
+            if (isModalActive) return;
+            initAudio();
+            isSelecting = true;
+            selectedCells = [{ r, c, el }];
+            el.classList.add('selected');
+            playSelectSound();
+        }
+
+        function moveSelect(r, c, el) {
+            if (isModalActive || !isSelecting) return;
+            if (selectedCells.some(cell => cell.r === r && cell.c === c)) return;
+            
+            const first = selectedCells[0];
+            if (r === first.r || c === first.c) {
+                selectedCells.push({ r, c, el });
+                el.classList.add('selected');
+                playSelectSound();
+                updateDisplay();
+            }
+        }
+
+        function endSelect() {
+            if (!isSelecting) return;
+            isSelecting = false;
+            
+            const wordStr = selectedCells.map(c => c.el.textContent).join('');
+            const revStr = wordStr.split('').reverse().join('');
+            
+            let matched = null;
+            if (wordsInLevel.includes(wordStr)) matched = wordStr;
+            else if (wordsInLevel.includes(revStr)) matched = revStr;
+            
+            if (matched && !foundWords.includes(matched)) {
+                foundWords.push(matched);
+                usedWords[currentCategory].push(matched);
+                score += 20;
+                document.getElementById('score-val').textContent = score;
+                selectedCells.forEach(c => {
+                    c.el.classList.add('found');
+                    c.el.classList.remove('selected');
+                });
+                document.getElementById(`tag-${matched}`).classList.add('completed');
+                playSuccessSound();
+
+                if (foundWords.length === wordsInLevel.length) {
+                    playLevelWinSound();
+                    setTimeout(() => { 
+                        // BATAS LEVEL 10 UNTUK MODE WORD SEARCH
+                        if (currentLevel >= 10) {
+                            showCustomModal(
+                                "Selamat Sang Juara! 👑", 
+                                `Luar biasa pintar! Kamu telah menamatkan Level 10 maksimal pada permainan Word Search. Terus pertahankan semangat belajarmu ya!`, 
+                                "🏆",
+                                () => { backToHome(); }
+                            );
+                        } else {
+                            showCustomModal(
+                                "Luar Biasa!", 
+                                `Kamu menyelesaikan semua kata di level ini! Bersiaplah untuk tantangan berikutnya.`, 
+                                "🎉",
+                                () => { currentLevel++; initLevel(); }
+                            );
+                        }
+                    }, 500);
+                }
+            } else {
+                selectedCells.forEach(c => c.el.classList.remove('selected'));
+            }
+            selectedCells = [];
+            updateDisplay();
+        }
+
+        function giveClue() {
+            if (isModalActive) return;
+            const rem = wordsInLevel.filter(w => !foundWords.includes(w));
+            if (rem.length > 0) {
+                const targetWord = rem[0];
+                const coords = wordStartingCoords[targetWord];
+                if (coords) {
+                    const targetCell = document.getElementById(`cell-${coords.r}-${coords.c}`);
+                    if (targetCell) {
+                        targetCell.classList.add('pulse-clue');
+                        setTimeout(() => { targetCell.classList.remove('pulse-clue'); }, 4000);
+                    }
+                }
+                showClueToast(`Cari kata "${targetWord}". Huruf pertamanya ("${targetWord[0]}") berkedip kuning di papan permainan!`);
+            }
+        }
+
+        function updateDisplay() {
+            document.getElementById('current-word').textContent = selectedCells.length > 0 ? selectedCells.map(c => c.el.textContent).join('') : "...";
+        }
+
+
+        // --- MODE 2: GAMEPLAY CROC WORD PUZZLE (TEMA DINAMIS) ---
+        let revealedCrocLetters = {}; 
+
+        function generateCrocLevelFromCategory(category) {
+            const allWords = DATABASE[category];
+            const seedCandidates = allWords.filter(w => w.length >= 4 && w.length <= 6);
+            const shuffledCandidates = [...seedCandidates].sort(() => 0.5 - Math.random());
+            
+            for (const seed of shuffledCandidates) {
+                const poolLetters = seed.split('');
+                const poolCounts = {};
+                for (const char of poolLetters) {
+                    poolCounts[char] = (poolCounts[char] || 0) + 1;
+                }
+                
+                const matchingWords = allWords.filter(word => {
+                    if (word.length < 3 || word.length > seed.length) return false;
+                    const wordCounts = {};
+                    for (const char of word) {
+                        wordCounts[char] = (wordCounts[char] || 0) + 1;
+                    }
+                    for (const char in wordCounts) {
+                        if (!poolCounts[char] || wordCounts[char] > poolCounts[char]) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                
+                if (matchingWords.length >= 2) {
+                    const finalWords = matchingWords.slice(0, 4);
+                    return {
+                        letters: poolLetters,
+                        words: finalWords
+                    };
+                }
+            }
+            return { letters: ["A", "P", "E", "S"], words: ["APES", "APE", "SEA"] };
+        }
+
+        function initCrocLevel() {
+            const levelData = generateCrocLevelFromCategory(currentCategory);
+            
+            crocFoundWords = [];
+            crocSelectedLetters = [];
+            isCrocConnecting = false;
+            revealedCrocLetters = {}; 
+            isModalActive = false;
+            crocActiveLevelWords = levelData.words;
+
+            document.getElementById('croc-level-text').textContent = `LEVEL ${crocLevelIndex}`;
+            document.getElementById('croc-score-val').textContent = crocScore;
+            document.getElementById('croc-current-word').textContent = "...";
+
+            renderCrocSlots(levelData.words);
+            buildCrocWheel(levelData.letters);
+        }
+
+        function renderCrocSlots(words) {
+            const slotsContainer = document.getElementById('croc-slots');
+            slotsContainer.innerHTML = '';
+
+            words.forEach((word) => {
+                const row = document.createElement('div');
+                row.className = 'croc-word-row';
+                row.id = `croc-row-${word}`;
+
+                for (let i = 0; i < word.length; i++) {
+                    const box = document.createElement('div');
+                    box.className = 'croc-box';
+                    box.id = `croc-box-${word}-${i}`;
+                    box.textContent = ''; 
+                    row.appendChild(box);
+                }
+                slotsContainer.appendChild(row);
+            });
+        }
+
+        function buildCrocWheel(letters) {
+            const canvas = document.getElementById('croc-wheel-canvas');
+            const ctx = canvas.getContext('2d');
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = 75; 
+
+            crocActiveLetters = [];
+
+            letters.forEach((letter, i) => {
+                const angle = -Math.PI / 2 + (2 * Math.PI * i) / letters.length;
+                const x = cx + radius * Math.cos(angle);
+                const y = cy + radius * Math.sin(angle);
+                crocActiveLetters.push({ letter, x, y, angle });
+            });
+
+            setupCanvasEvents(canvas);
+            drawCrocWheel();
+        }
+
+        function drawCrocWheel(mouseX = null, mouseY = null) {
+            const canvas = document.getElementById('croc-wheel-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, 95, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(0, 136, 204, 0.04)';
+            ctx.fill();
+
+            if (crocSelectedLetters.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(crocSelectedLetters[0].x, crocSelectedLetters[0].y);
+                for (let i = 1; i < crocSelectedLetters.length; i++) {
+                    ctx.lineTo(crocSelectedLetters[i].x, crocSelectedLetters[i].y);
+                }
+                if (mouseX !== null && mouseY !== null) {
+                    ctx.lineTo(mouseX, mouseY);
+                }
+                ctx.strokeStyle = '#ffcc00';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.shadowColor = 'rgba(255, 204, 0, 0.6)';
+                ctx.shadowBlur = 12;
+                ctx.stroke();
+                ctx.shadowBlur = 0; 
+            }
+
+            crocActiveLetters.forEach(item => {
+                const isSelected = crocSelectedLetters.some(sel => sel.letter === item.letter && sel.x === item.x);
+
+                ctx.beginPath();
+                ctx.arc(item.x, item.y, 25, 0, 2 * Math.PI);
+                ctx.fillStyle = isSelected ? '#ffcc00' : '#ffffff';
+                ctx.strokeStyle = isSelected ? '#ff9900' : '#0088cc';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = 'rgba(0,0,0,0.1)';
+                ctx.shadowBlur = 6;
+                ctx.shadowOffsetY = 3;
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0; 
+                ctx.shadowOffsetY = 0;
+
+                ctx.font = 'bold 22px Nunito';
+                ctx.fillStyle = isSelected ? '#5d4037' : '#0088cc';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.letter, item.x, item.y);
+            });
+        }
+
+        function setupCanvasEvents(canvas) {
+            function getCoords(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: (clientX - rect.left) * (canvas.width / rect.width),
+                    y: (clientY - rect.top) * (canvas.height / rect.height)
+                };
+            }
+
+            function handleStart(e) {
+                if (isModalActive) return;
+                e.preventDefault();
+                initAudio();
+                const coords = getCoords(e);
+                
+                const hit = crocActiveLetters.find(item => {
+                    const dist = Math.hypot(coords.x - item.x, coords.y - item.y);
+                    return dist < 28;
+                });
+
+                if (hit) {
+                    isCrocConnecting = true;
+                    crocSelectedLetters = [hit];
+                    playSelectSound();
+                    updateCrocWordDisplay();
+                    drawCrocWheel(coords.x, coords.y);
+                }
+            }
+
+            function handleMove(e) {
+                if (!isCrocConnecting || isModalActive) return;
+                e.preventDefault();
+                const coords = getCoords(e);
+
+                const hit = crocActiveLetters.find(item => {
+                    const dist = Math.hypot(coords.x - item.x, coords.y - item.y);
+                    return dist < 28;
+                });
+
+                if (hit) {
+                    const alreadySelected = crocSelectedLetters.some(sel => sel.letter === hit.letter && sel.x === hit.x);
+                    if (!alreadySelected) {
+                        crocSelectedLetters.push(hit);
+                        playSelectSound();
+                        updateCrocWordDisplay();
+                    }
+                }
+                drawCrocWheel(coords.x, coords.y);
+            }
+
+            function handleEnd(e) {
+                if (!isCrocConnecting) return;
+                isCrocConnecting = false;
+
+                const guessedWord = crocSelectedLetters.map(item => item.letter).join('');
+                checkCrocWord(guessedWord);
+
+                crocSelectedLetters = [];
+                document.getElementById('croc-current-word').textContent = "...";
+                drawCrocWheel();
+            }
+
+            canvas.onmousedown = handleStart;
+            canvas.onmousemove = handleMove;
+            window.onmouseup = handleEnd;
+
+            canvas.ontouchstart = handleStart;
+            canvas.ontouchmove = handleMove;
+            canvas.ontouchend = handleEnd;
+        }
+
+        function updateCrocWordDisplay() {
+            const word = crocSelectedLetters.map(item => item.letter).join('');
+            document.getElementById('croc-current-word').textContent = word || "...";
+        }
+
+        function checkCrocWord(word) {
+            if (crocActiveLevelWords.includes(word) && !crocFoundWords.includes(word)) {
+                crocFoundWords.push(word);
+                crocScore += word.length * 10;
+                document.getElementById('croc-score-val').textContent = crocScore;
+
+                fillCrocSlots(word);
+                playSuccessSound();
+
+                if (crocFoundWords.length === crocActiveLevelWords.length) {
+                    playLevelWinSound();
+                    setTimeout(() => {
+                        // BATAS LEVEL 10 UNTUK MODE CROC WORD
+                        if (crocLevelIndex >= 10) {
+                            showCustomModal(
+                                "Selamat Istimewa! 👑",
+                                "Fantastis! Kamu telah berhasil menamatkan Level 10 maksimal pada teka-teki silang Croc Word. Kamu sangat hebat!",
+                                "🏆",
+                                () => { backToHome(); }
+                            );
+                        } else {
+                            showCustomModal(
+                                "Hebat Sekali! 🎉",
+                                "Teka-teki silang kategori ini selesai sempurna! Bersiap untuk level selanjutnya.",
+                                "🐊",
+                                () => { 
+                                    crocLevelIndex++; 
+                                    initCrocLevel(); 
+                                }
+                            );
+                        }
+                    }, 600);
+                }
+            }
+        }
+
+        function fillCrocSlots(word) {
+            for (let i = 0; i < word.length; i++) {
+                const box = document.getElementById(`croc-box-${word}-${i}`);
+                if (box) {
+                    box.textContent = word[i];
+                    box.classList.remove('revealed');
+                    box.classList.add('filled');
+                }
+            }
+        }
+
+        function giveCrocClue() {
+            if (isModalActive) return;
+            
+            const unfinishedWords = crocActiveLevelWords.filter(w => !crocFoundWords.includes(w));
+            if (unfinishedWords.length === 0) return;
+
+            const targetWord = unfinishedWords[Math.floor(Math.random() * unfinishedWords.length)];
+            
+            let emptyIndexes = [];
+            for (let i = 0; i < targetWord.length; i++) {
+                const key = `${targetWord}-${i}`;
+                if (!revealedCrocLetters[key]) {
+                    emptyIndexes.push(i);
+                }
+            }
+
+            if (emptyIndexes.length > 0) {
+                const luckyIndex = emptyIndexes[Math.floor(Math.random() * emptyIndexes.length)];
+                const key = `${targetWord}-${luckyIndex}`;
+                revealedCrocLetters[key] = true;
+
+                const targetBox = document.getElementById(`croc-box-${targetWord}-${luckyIndex}`);
+                if (targetBox) {
+                    targetBox.textContent = targetWord[luckyIndex];
+                    targetBox.classList.add('revealed');
+                }
+
+                showClueToast(`Satu huruf misteri bantuan untuk kata "${targetWord}" telah dibukakan!`);
+            } else {
+                showClueToast(`Gunakan jarimu untuk menghubungkan huruf-huruf melingkar di bawah!`);
+            }
+        }
+
+
+        // --- MODE 3: GAMEPLAY CARI PERBEDAAN (DENGAN TEMA DINAMIS BARU & REALISTIS!) ---
+        
+        // Generator Level Cari Perbedaan Dinamis Sesuai Nomor Level (Semua Bertema Hewan Nyata)
+        function generateDiffLevelData(category, levelNum) {
+            // Evaluasi berdasarkan level bermain agar gambar berbeda di setiap levelnya dengan tema Hewan (Maksimal 10 Level)
+            if (levelNum === 1) {
+                // LEVEL 1: Savana Afrika
+                return [
+                    { x: 260, y: 130, r: 24, name: "Gajah Kecil", desc: "Anak gajah kecil di kanan menghilang dari savana!" },
+                    { x: 60, y: 120, r: 22, name: "Jerapah Jangkung", desc: "Kepala jerapah tinggi di kiri tertutup daun akasia!" },
+                    { x: 185, y: 175, r: 18, name: "Singa Savana", desc: "Mata singa savana berkedip tertutup!" },
+                    { x: 290, y: 40, r: 18, name: "Matahari Bersinar", desc: "Matahari berubah warna dari kuning ke jingga kemerahan!" },
+                    { x: 120, y: 55, r: 16, name: "Awan Melayang", desc: "Awan putih lembut di atas langit menghilang!" }
+                ];
+            } else if (levelNum === 2) {
+                // LEVEL 2: Hutan Hujan Tropis
+                return [
+                    { x: 70, y: 80, r: 20, name: "Burung Beo", desc: "Burung beo eksotis merah menyala menghilang dari dahan pohon!" },
+                    { x: 270, y: 95, r: 18, name: "Monyet Bergelantungan", desc: "Monyet yang bergelantungan di dahan sebelah kanan menghilang!" },
+                    { x: 180, y: 195, r: 15, name: "Kupu-Kupu Tropis", desc: "Kupu-kupu biru cantik yang hinggap di semak menghilang!" },
+                    { x: 120, y: 155, r: 22, name: "Katak Pohon", desc: "Katak pohon hijau kecil di batang kayu menghilang!" },
+                    { x: 290, y: 190, r: 16, name: "Bunga Hutan", desc: "Bunga hutan merah cerah di sudut kanan bawah menghilang!" }
+                ];
+            } else if (levelNum === 3) {
+                // LEVEL 3: Kedalaman Laut
+                return [
+                    { x: 170, y: 80, r: 25, name: "Lumba-Lumba", desc: "Ikan lumba-lumba abu-abu anggun yang sedang berenang menghilang!" },
+                    { x: 70, y: 195, r: 16, name: "Kepiting Karang", desc: "Kepiting merah kecil di dasar pasir menghilang!" },
+                    { x: 270, y: 130, r: 20, name: "Gurita Misterius", desc: "Gurita ungu yang menyelinap di balik karang menghilang!" },
+                    { x: 90, y: 120, r: 18, name: "Ubur-Ubur", desc: "Ubur-ubur transparan yang mengambang berubah warna menjadi merah muda!" },
+                    { x: 195, y: 150, r: 12, name: "Bintang Laut", desc: "Bintang laut jingga di karang tengah menghilang!" }
+                ];
+            } else if (levelNum === 4) {
+                // LEVEL 4: Danau Flamingo
+                return [
+                    { x: 80, y: 130, r: 22, name: "Flamingo Pink", desc: "Flamingo merah muda cantik di tepi danau menghilang!" },
+                    { x: 170, y: 165, r: 18, name: "Bebek Air", desc: "Bebek air kecil yang sedang berenang di tengah danau menghilang!" },
+                    { x: 280, y: 140, r: 20, name: "Angsa Putih", desc: "Angsa putih anggun di sisi kanan danau menghilang!" },
+                    { x: 210, y: 185, r: 15, name: "Kembang Teratai", desc: "Bunga teratai merah muda mekar indah di atas air menghilang!" },
+                    { x: 285, y: 40, r: 16, name: "Awan Sore", desc: "Awan putih di bagian kanan atas langit menghilang!" }
+                ];
+            } else if (levelNum === 5) {
+                // LEVEL 5: Pegunungan Es Arktik
+                return [
+                    { x: 85, y: 150, r: 25, name: "Beruang Kutub", desc: "Beruang kutub putih besar di atas bongkahan es menghilang!" },
+                    { x: 180, y: 175, r: 16, name: "Penguin Kecil", desc: "Penguin kecil lucu yang sedang berdiri menghilang!" },
+                    { x: 275, y: 165, r: 20, name: "Singa Laut", desc: "Singa laut abu-abu yang berjemur di tebing es menghilang!" },
+                    { x: 120, y: 50, r: 14, name: "Camar Es", desc: "Burung camar es yang terbang melayang di langit menghilang!" },
+                    { x: 285, y: 50, r: 18, name: "Gunung Es Belakang", desc: "Puncak gunung es tajam di latar belakang kanan menghilang!" }
+                ];
+            } else if (levelNum === 6) {
+                // LEVEL 6: Gurun Pasir Hangat
+                return [
+                    { x: 140, y: 145, r: 24, name: "Unta Gurun", desc: "Unta punuk satu gurun pasir di sebelah kiri tengah menghilang!" },
+                    { x: 70, y: 190, r: 15, name: "Kadal Gurun", desc: "Kadal gurun kecil yang merayap di dekat kaktus menghilang!" },
+                    { x: 280, y: 195, r: 14, name: "Kalajengking", desc: "Kalajengking merah kecokelatan di pasir kanan bawah menghilang!" },
+                    { x: 280, y: 130, r: 20, name: "Kaktus Hijau", desc: "Cabang atas pohon kaktus berduri di sebelah kanan menghilang!" },
+                    { x: 120, y: 45, r: 18, name: "Elang Gurun", desc: "Burung elang gurun gagah yang terbang di langit menghilang!" }
+                ];
+            } else if (levelNum === 7) {
+                // LEVEL 7: Kolam Hutan Bambu
+                return [
+                    { x: 120, y: 135, r: 25, name: "Panda Lucu", desc: "Panda gemas hitam-putih yang sedang duduk memakan bambu menghilang!" },
+                    { x: 280, y: 140, r: 16, name: "Burung Pipit", desc: "Burung pipit cokelat kecil di ranting bambu menghilang!" },
+                    { x: 80, y: 195, r: 18, name: "Kura-Kura Air", desc: "Kura-kura air kecil yang merayap di tepi kolam menghilang!" },
+                    { x: 220, y: 175, r: 12, name: "Kunang-Kunang", desc: "Kunang-kunang bersinar hijau neon di dekat kolam menghilang!" },
+                    { x: 50, y: 45, r: 18, name: "Matahari Terbit Bambu", desc: "Matahari yang menyembul dari balik rimbun bambu berubah menjadi jingga pekat!" }
+                ];
+            } else if (levelNum === 8) {
+                // LEVEL 8: Padang Rumput Pedesaan
+                return [
+                    { x: 85, y: 145, r: 24, name: "Sapi Perah", desc: "Sapi perah bercak hitam-putih di sisi kiri menghilang!" },
+                    { x: 180, y: 170, r: 18, name: "Domba Bulu", desc: "Domba putih lucu berbulu tebal di tengah padang menghilang!" },
+                    { x: 275, y: 135, r: 22, name: "Kuda Cokelat", desc: "Kuda cokelat gagah yang berdiri di sisi kanan menghilang!" },
+                    { x: 210, y: 190, r: 12, name: "Ayam Jago", desc: "Ayam jago kecil berbulu indah yang sedang mematuk menghilang!" },
+                    { x: 120, y: 50, r: 18, name: "Pagar Pedesaan", desc: "Pagar kayu pembatas pedesaan di latar belakang tengah menghilang!" }
+                ];
+            } else if (levelNum === 9) {
+                // LEVEL 9: Hutan Pinus Utara
+                return [
+                    { x: 100, y: 135, r: 25, name: "Rusa Tanduk", desc: "Rusa cokelat bertanduk indah di sela-sela pohon pinus menghilang!" },
+                    { x: 240, y: 135, r: 15, name: "Tupai Pohon", desc: "Tupai kecil cokelat di dahan pohon pinus kanan menghilang!" },
+                    { x: 40, y: 90, r: 18, name: "Burung Hantu", desc: "Burung hantu misterius di atas dahan kiri menghilang!" },
+                    { x: 170, y: 195, r: 14, name: "Jamur Merah", desc: "Kelompok jamur liar merah bintik putih di tanah tengah menghilang!" },
+                    { x: 285, y: 40, r: 16, name: "Awan Hutan Utara", desc: "Awan tebal berselimut kabut di langit kanan atas menghilang!" }
+                ];
+            } else {
+                // LEVEL 10: Rawa Australia (MAKSIMAL)
+                return [
+                    { x: 90, y: 140, r: 25, name: "Kangguru", desc: "Kangguru cokelat Australia yang sedang berdiri di rawa menghilang!" },
+                    { x: 280, y: 100, r: 18, name: "Koala Pohon", desc: "Koala abu-abu imut yang sedang memeluk pohon eukaliptus menghilang!" },
+                    { x: 215, y: 145, r: 22, name: "Burung Emu", desc: "Burung emu tinggi berbulu cokelat di tengah rawa menghilang!" },
+                    { x: 160, y: 195, r: 16, name: "Platipus Air", desc: "Platipus air berparuh bebek di tepian aliran rawa menghilang!" },
+                    { x: 50, y: 40, r: 18, name: "Matahari Rawa Australia", desc: "Matahari berubah warna dari kuning ke jingga kemerahan!" }
+                ];
+            }
+        }
+
+        function initDiffLevel() {
+            foundDifferences = [];
+            isModalActive = false;
+            closeClueToast();
+
+            // Memperoleh data perbedaan acak sesuai nomor level aktif (Tema Hewan Nyata)
+            activeDifferences = generateDiffLevelData(currentCategory, diffLevelIndex);
+
+            document.getElementById('diff-level-text').textContent = `LEVEL ${diffLevelIndex}`;
+            document.getElementById('diff-needed-val').textContent = totalDifferences;
+
+            clearDiffMarkers();
+            drawDiffIllustrations();
+            setupDiffClickEvents();
+        }
+
+        function clearDiffMarkers() {
+            const leftWrapper = document.getElementById('diff-left-wrapper');
+            const rightWrapper = document.getElementById('diff-right-wrapper');
+            
+            const existingLeftMarkers = leftWrapper.querySelectorAll('.diff-marker');
+            existingLeftMarkers.forEach(m => m.remove());
+            
+            const existingRightMarkers = rightWrapper.querySelectorAll('.diff-marker');
+            existingRightMarkers.forEach(m => m.remove());
+        }
+
+        // Fungsi utama menggambar Ilustrasi
+        function drawDiffIllustrations() {
+            const canvasLeft = document.getElementById('diff-canvas-left');
+            const canvasRight = document.getElementById('diff-canvas-right');
+            
+            drawBaseScene(canvasLeft, []); // Gambar Asli Kiri
+            drawBaseScene(canvasRight, activeDifferences); // Gambar Modifikasi Kanan
+        }
+
+        function drawBaseScene(canvas, diffsToModify) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Level 1 s.d Level 10 menyajikan 10 gambar unik berbeda!
+            if (diffLevelIndex === 1) {
+                drawThemeAnimalsSavannah(ctx, diffsToModify);
+            } else if (diffLevelIndex === 2) {
+                drawThemeAnimalsJungle(ctx, diffsToModify);
+            } else if (diffLevelIndex === 3) {
+                drawThemeAnimalsOcean(ctx, diffsToModify);
+            } else if (diffLevelIndex === 4) {
+                drawThemeAnimalsLake(ctx, diffsToModify);
+            } else if (diffLevelIndex === 5) {
+                drawThemeAnimalsArctic(ctx, diffsToModify);
+            } else if (diffLevelIndex === 6) {
+                drawThemeAnimalsDesert(ctx, diffsToModify);
+            } else if (diffLevelIndex === 7) {
+                drawThemeAnimalsBamboo(ctx, diffsToModify);
+            } else if (diffLevelIndex === 8) {
+                drawThemeAnimalsFarm(ctx, diffsToModify);
+            } else if (diffLevelIndex === 9) {
+                drawThemeAnimalsPine(ctx, diffsToModify);
+            } else {
+                drawThemeAnimalsAustralia(ctx, diffsToModify);
+            }
+        }
+
+        // --- APRESIASI GAMBAR REALISTIS TEMA HEWAN NYATA TIAP LEVEL (1 - 10) ---
+
+        // LEVEL 1: SAVANA AFRIKA REALISTIS
+        function drawThemeAnimalsSavannah(ctx, diffs) {
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 180);
+            skyGrad.addColorStop(0, "#f97316"); 
+            skyGrad.addColorStop(0.6, "#fef08a"); 
+            skyGrad.addColorStop(1, "#fef9c3"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            if (!diffs.some(d => d.name === "Awan Melayang")) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+                ctx.beginPath();
+                ctx.arc(110, 55, 12, 0, 2 * Math.PI);
+                ctx.arc(125, 48, 16, 0, 2 * Math.PI);
+                ctx.arc(142, 55, 12, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            const sunOrange = diffs.some(d => d.name === "Matahari Bersinar");
+            let sunGrad = ctx.createRadialGradient(290, 40, 2, 290, 40, 22);
+            sunGrad.addColorStop(0, "#ffffff");
+            sunGrad.addColorStop(0.3, "#fef08a");
+            sunGrad.addColorStop(1, sunOrange ? "#ea580c" : "#f97316"); 
+            ctx.fillStyle = sunGrad;
+            ctx.beginPath();
+            ctx.arc(290, 40, 22, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = "#fef08a";
+            ctx.beginPath();
+            ctx.arc(80, 240, 160, Math.PI, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#fde047";
+            ctx.beginPath();
+            ctx.arc(260, 240, 140, Math.PI, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = "#78350f"; 
+            ctx.fillRect(162, 110, 14, 90);
+            ctx.fillStyle = "#451a03"; 
+            ctx.fillRect(164, 125, 3, 75);
+
+            ctx.fillStyle = "#166534"; 
+            ctx.beginPath();
+            ctx.ellipse(170, 105, 50, 18, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#15803d"; 
+            ctx.beginPath();
+            ctx.ellipse(170, 95, 40, 14, 0, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = "#ca8a04"; 
+            ctx.fillRect(52, 90, 12, 80); 
+            ctx.fillRect(44, 150, 24, 25); 
+            ctx.fillRect(42, 82, 22, 10); 
+            ctx.fillRect(46, 175, 3, 30);  
+            ctx.fillRect(52, 175, 3, 30);  
+            ctx.fillRect(58, 175, 3, 30);  
+            ctx.fillRect(64, 175, 3, 30);  
+            ctx.fillRect(44, 76, 2, 6);
+            ctx.fillRect(48, 76, 2, 6);
+            ctx.fillStyle = "#78350f"; 
+            ctx.fillRect(54, 100, 4, 5);
+            ctx.fillRect(56, 115, 5, 4);
+            ctx.fillRect(53, 130, 4, 6);
+            ctx.fillRect(47, 155, 6, 5);
+            ctx.fillRect(67, 152, 2, 16);
+
+            if (diffs.some(d => d.name === "Jerapah Jangkung")) {
+                ctx.fillStyle = "#14532d"; 
+                ctx.beginPath();
+                ctx.ellipse(52, 85, 20, 12, Math.PI/6, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            let maneGrad = ctx.createRadialGradient(185, 175, 8, 185, 175, 20);
+            maneGrad.addColorStop(0, "#b45309"); 
+            maneGrad.addColorStop(1, "#78350f"); 
+            ctx.fillStyle = maneGrad;
+            ctx.beginPath();
+            ctx.arc(185, 175, 19, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#f59e0b"; 
+            ctx.beginPath();
+            ctx.arc(185, 177, 12, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillRect(175, 182, 35, 18);
+            ctx.fillRect(205, 182, 5, 18); 
+            const blindLion = diffs.some(d => d.name === "Singa Savana");
+            ctx.fillStyle = "#000000";
+            if (blindLion) {
+                ctx.strokeStyle = "#451a03";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(181, 176, 2, 0, Math.PI, true);
+                ctx.arc(189, 176, 2, 0, Math.PI, true);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.arc(181, 175, 2, 0, 2 * Math.PI);
+                ctx.arc(189, 175, 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            if (!diffs.some(d => d.name === "Gajah Kecil")) {
+                ctx.fillStyle = "#64748b"; 
+                ctx.beginPath();
+                ctx.arc(260, 135, 15, 0, 2 * Math.PI); 
+                ctx.fill();
+                ctx.fillRect(255, 135, 34, 25); 
+                ctx.beginPath();
+                ctx.arc(245, 142, 8, Math.PI, 2 * Math.PI, true);
+                ctx.strokeStyle = "#64748b";
+                ctx.lineWidth = 6;
+                ctx.stroke();
+                ctx.fillRect(258, 160, 6, 15);
+                ctx.fillRect(268, 160, 6, 15);
+                ctx.fillRect(278, 160, 6, 15);
+                ctx.fillStyle = "#f8fafc";
+                ctx.beginPath();
+                ctx.moveTo(246, 140);
+                ctx.quadraticCurveTo(240, 144, 238, 148);
+                ctx.quadraticCurveTo(243, 145, 248, 141);
+                ctx.fill();
+            }
+
+            let grassGrad = ctx.createLinearGradient(0, 200, 0, 240);
+            grassGrad.addColorStop(0, "#a16207"); 
+            grassGrad.addColorStop(1, "#854d0e"); 
+            ctx.fillStyle = grassGrad;
+            ctx.fillRect(0, 200, 340, 40);
+        }
+
+        // LEVEL 2: HUTAN HUJAN TROPIS
+        function drawThemeAnimalsJungle(ctx, diffs) {
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 150);
+            skyGrad.addColorStop(0, "#bae6fd"); 
+            skyGrad.addColorStop(1, "#e0f2fe"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            ctx.fillStyle = "#052e16"; 
+            ctx.beginPath();
+            ctx.moveTo(0, 140); ctx.lineTo(120, 80); ctx.lineTo(240, 150); ctx.lineTo(340, 100); ctx.lineTo(340, 240); ctx.lineTo(0, 240);
+            ctx.fill();
+
+            ctx.fillStyle = "#451a03"; 
+            ctx.fillRect(15, 0, 25, 200); 
+            ctx.fillRect(300, 0, 20, 200); 
+            ctx.fillRect(15, 90, 300, 12);
+
+            ctx.fillStyle = "#14532d"; 
+            ctx.beginPath();
+            ctx.arc(60, 210, 45, 0, 2 * Math.PI);
+            ctx.arc(170, 210, 50, 0, 2 * Math.PI);
+            ctx.arc(280, 210, 45, 0, 2 * Math.PI);
+            ctx.fill();
+
+            if (!diffs.some(d => d.name === "Burung Beo")) {
+                ctx.fillStyle = "#ef4444";
+                ctx.beginPath();
+                ctx.ellipse(70, 72, 10, 16, -Math.PI/12, 0, 2 * Math.PI); 
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(72, 57, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#eab308";
+                ctx.beginPath();
+                ctx.ellipse(66, 75, 5, 12, -Math.PI/6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#2563eb"; 
+                ctx.beginPath();
+                ctx.ellipse(64, 80, 3, 7, -Math.PI/6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#fef08a";
+                ctx.beginPath();
+                ctx.moveTo(78, 54);
+                ctx.quadraticCurveTo(84, 57, 82, 63);
+                ctx.quadraticCurveTo(77, 60, 78, 54);
+                ctx.fill();
+                ctx.fillStyle = "#000000";
+                ctx.beginPath();
+                ctx.arc(74, 55, 1.5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            if (!diffs.some(d => d.name === "Monyet Bergelantungan")) {
+                ctx.fillStyle = "#78350f"; 
+                ctx.beginPath();
+                ctx.arc(270, 115, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillRect(264, 123, 12, 20);
+                ctx.strokeStyle = "#78350f";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(270, 143);
+                ctx.quadraticCurveTo(278, 155, 274, 162);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(266, 123);
+                ctx.lineTo(262, 90); 
+                ctx.stroke();
+                ctx.fillStyle = "#fed7aa";
+                ctx.beginPath();
+                ctx.arc(270, 117, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            if (!diffs.some(d => d.name === "Katak Pohon")) {
+                ctx.fillStyle = "#22c55e"; 
+                ctx.beginPath();
+                ctx.ellipse(120, 160, 12, 8, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(112, 156, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#ef4444"; 
+                ctx.beginPath();
+                ctx.arc(112, 154, 3, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#000000"; 
+                ctx.fillRect(111.5, 152.5, 1, 3);
+            }
+
+            if (!diffs.some(d => d.name === "Kupu-Kupu Tropis")) {
+                ctx.fillStyle = "#3b82f6"; 
+                ctx.beginPath();
+                ctx.ellipse(174, 190, 5, 8, Math.PI/4, 0, 2 * Math.PI);
+                ctx.ellipse(175, 198, 4, 6, Math.PI/6, 0, 2 * Math.PI);
+                ctx.ellipse(186, 190, 5, 8, -Math.PI/4, 0, 2 * Math.PI);
+                ctx.ellipse(185, 198, 4, 6, -Math.PI/6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(179, 188, 2, 14);
+            }
+
+            if (!diffs.some(d => d.name === "Bunga Hutan")) {
+                ctx.fillStyle = "#f43f5e";
+                ctx.beginPath();
+                ctx.arc(290, 192, 7, 0, 2 * Math.PI);
+                ctx.arc(284, 192, 7, 0, 2 * Math.PI);
+                ctx.arc(287, 186, 7, 0, 2 * Math.PI);
+                ctx.arc(293, 186, 7, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#facc15";
+                ctx.beginPath();
+                ctx.arc(288.5, 189, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            let groundGrad = ctx.createLinearGradient(0, 200, 0, 240);
+            groundGrad.addColorStop(0, "#166534"); 
+            groundGrad.addColorStop(1, "#14532d"); 
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, 200, 340, 40);
+        }
+
+        // LEVEL 3: KEDALAMAN LAUT
+        function drawThemeAnimalsOcean(ctx, diffs) {
+            let seaGrad = ctx.createLinearGradient(0, 0, 0, 240);
+            seaGrad.addColorStop(0, "#38bdf8"); 
+            seaGrad.addColorStop(0.7, "#0369a1"); 
+            seaGrad.addColorStop(1, "#0f172a"); 
+            ctx.fillStyle = seaGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(50, 80, 4, 0, 2 * Math.PI);
+            ctx.arc(52, 60, 2.5, 0, 2 * Math.PI);
+            ctx.arc(230, 90, 5, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            ctx.fillStyle = "#f43f5e"; 
+            ctx.beginPath();
+            ctx.arc(30, 210, 30, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#ec4899"; 
+            ctx.beginPath();
+            ctx.arc(310, 210, 25, 0, 2 * Math.PI);
+            ctx.fill();
+
+            if (!diffs.some(d => d.name === "Lumba-Lumba")) {
+                ctx.fillStyle = "#94a3b8"; 
+                ctx.beginPath();
+                ctx.ellipse(170, 78, 24, 11, -Math.PI/6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(146, 92, 4, 8, -Math.PI/4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(172, 67);
+                ctx.quadraticCurveTo(182, 53, 185, 52);
+                ctx.quadraticCurveTo(180, 62, 178, 68);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(190, 66);
+                ctx.lineTo(204, 52);
+                ctx.lineTo(202, 68);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "#000000";
+                ctx.beginPath();
+                ctx.arc(155, 83, 1.5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            if (!diffs.some(d => d.name === "Gurita Misterius")) {
+                ctx.fillStyle = "#a855f7"; 
+                ctx.beginPath();
+                ctx.arc(270, 125, 12, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "#a855f7";
+                ctx.beginPath();
+                ctx.moveTo(263, 131); ctx.quadraticCurveTo(250, 142, 255, 150);
+                ctx.moveTo(270, 137); ctx.quadraticCurveTo(270, 152, 266, 158);
+                ctx.moveTo(277, 131); ctx.quadraticCurveTo(290, 142, 285, 150);
+                ctx.stroke();
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(266, 125, 3, 0, 2 * Math.PI);
+                ctx.arc(274, 125, 3, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#000000";
+                ctx.beginPath();
+                ctx.arc(266, 125, 1.5, 0, 2 * Math.PI);
+                ctx.arc(274, 125, 1.5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            const changeJellyfishColor = diffs.some(d => d.name === "Ubur-Ubur");
+            ctx.fillStyle = changeJellyfishColor ? "rgba(236, 72, 153, 0.75)" : "rgba(56, 189, 248, 0.75)"; 
+            ctx.beginPath();
+            ctx.arc(90, 115, 12, Math.PI, 2 * Math.PI);
+            ctx.fill();
+            ctx.strokeStyle = changeJellyfishColor ? "rgba(236, 72, 153, 0.6)" : "rgba(56, 189, 248, 0.6)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(82, 116); ctx.quadraticCurveTo(79, 128, 81, 140);
+            ctx.moveTo(90, 116); ctx.quadraticCurveTo(90, 131, 88, 144);
+            ctx.moveTo(98, 116); ctx.quadraticCurveTo(101, 128, 99, 140);
+            ctx.stroke();
+
+            if (!diffs.some(d => d.name === "Kepiting Karang")) {
+                ctx.fillStyle = "#f43f5e"; 
+                ctx.beginPath();
+                ctx.ellipse(70, 196, 9, 6, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(59, 190, 4, 3, Math.PI/4, 0, 2 * Math.PI);
+                ctx.ellipse(81, 190, 4, 3, -Math.PI/4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = "#f43f5e";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(64, 196); ctx.lineTo(59, 191);
+                ctx.moveTo(76, 196); ctx.lineTo(81, 191);
+                ctx.stroke();
+            }
+
+            if (!diffs.some(d => d.name === "Bintang Laut")) {
+                ctx.fillStyle = "#f97316"; 
+                ctx.beginPath();
+                ctx.moveTo(195, 141);
+                ctx.lineTo(198, 147); ctx.lineTo(205, 148);
+                ctx.lineTo(200, 152); ctx.lineTo(202, 158);
+                ctx.lineTo(195, 154); ctx.lineTo(188, 158);
+                ctx.lineTo(190, 152); ctx.lineTo(185, 148);
+                ctx.lineTo(192, 147);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            let sandGrad = ctx.createLinearGradient(0, 205, 0, 240);
+            sandGrad.addColorStop(0, "#fef08a"); 
+            sandGrad.addColorStop(1, "#ca8a04"); 
+            ctx.fillStyle = sandGrad;
+            ctx.fillRect(0, 205, 340, 35);
+        }
+
+        // LEVEL 4: DANAU FLAMINGO
+        function drawThemeAnimalsLake(ctx, diffs) {
+            // Langit Danau Biru Gradasi Sore
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 140);
+            skyGrad.addColorStop(0, "#fed7aa"); 
+            skyGrad.addColorStop(1, "#ffd1d1"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Awan Sore (x: 285, y: 40)
+            if (!diffs.some(d => d.name === "Awan Sore")) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+                ctx.beginPath();
+                ctx.arc(270, 45, 10, 0, 2 * Math.PI);
+                ctx.arc(282, 38, 14, 0, 2 * Math.PI);
+                ctx.arc(295, 45, 10, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Danau Biru Mengkilap di Tengah
+            ctx.fillStyle = "#38bdf8";
+            ctx.fillRect(0, 140, 340, 100);
+
+            // Pegunungan Hijau Belakang Danau
+            ctx.fillStyle = "#15803d";
+            ctx.beginPath();
+            ctx.arc(100, 140, 110, Math.PI, 2 * Math.PI);
+            ctx.arc(240, 140, 80, Math.PI, 2 * Math.PI);
+            ctx.fill();
+
+            // Flamingo Merah Muda di Tepi Kiri (x: 80, y: 130)
+            if (!diffs.some(d => d.name === "Flamingo Pink")) {
+                ctx.fillStyle = "#f472b6"; // Pink cerah
+                ctx.beginPath();
+                ctx.ellipse(80, 125, 8, 12, 0, 0, 2 * Math.PI); // Badan
+                ctx.fill();
+                // Leher S meliuk panjang flamingo
+                ctx.strokeStyle = "#f472b6";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(80, 115);
+                ctx.quadraticCurveTo(86, 95, 78, 90);
+                ctx.stroke();
+                // Kaki panjang flamingo merah muda
+                ctx.fillRect(77, 135, 2, 25);
+                ctx.fillRect(81, 135, 2, 20); // Satu tertekuk manis
+            }
+
+            // Bebek Air di Tengah Danau (x: 170, y: 165)
+            if (!diffs.some(d => d.name === "Bebek Air")) {
+                ctx.fillStyle = "#eab308"; // Bebek kuning manis
+                ctx.beginPath();
+                ctx.ellipse(170, 172, 10, 7, 0, 0, 2 * Math.PI); // Badan
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(177, 163, 6, 0, 2 * Math.PI); // Kepala
+                ctx.fill();
+                ctx.fillStyle = "#ea580c"; // Paruh oranye
+                ctx.fillRect(182, 162, 5, 3);
+            }
+
+            // Angsa Putih di Kanan (x: 280, y: 140)
+            if (!diffs.some(d => d.name === "Angsa Putih")) {
+                ctx.fillStyle = "#f8fafc"; // Putih bersih angsa
+                ctx.beginPath();
+                ctx.ellipse(280, 145, 12, 8, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = "#f8fafc";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(280, 140);
+                ctx.quadraticCurveTo(288, 120, 282, 115); // Leher melengkung anggun
+                ctx.stroke();
+            }
+
+            // Teratai Merah Muda di Atas Air Kolam (x: 210, y: 185)
+            if (!diffs.some(d => d.name === "Kembang Teratai")) {
+                ctx.fillStyle = "#ec4899"; // Merah muda
+                ctx.beginPath();
+                ctx.arc(210, 185, 5, 0, 2 * Math.PI);
+                ctx.arc(205, 187, 5, 0, 2 * Math.PI);
+                ctx.arc(215, 187, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#16a34a"; // Daun teratai hijau lebar bulat di air
+                ctx.beginPath();
+                ctx.ellipse(210, 193, 12, 4, 0, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Daratan Rumput Depan Danau
+            ctx.fillStyle = "#22c55e";
+            ctx.fillRect(0, 205, 340, 35);
+        }
+
+        // LEVEL 5: PEGUNUNGAN ES ARKTIK
+        function drawThemeAnimalsArctic(ctx, diffs) {
+            // Langit Kabut Arktik Biru Putih Dingin
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 140);
+            skyGrad.addColorStop(0, "#bae6fd");
+            skyGrad.addColorStop(1, "#f1f5f9");
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Gunung Es Belakang Kanan (x: 285, y: 50)
+            if (!diffs.some(d => d.name === "Gunung Es Belakang")) {
+                ctx.fillStyle = "#cbd5e1";
+                ctx.beginPath();
+                ctx.moveTo(220, 150);
+                ctx.lineTo(270, 70);
+                ctx.lineTo(320, 150);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Laut Es Biru Dingin
+            ctx.fillStyle = "#0284c7";
+            ctx.fillRect(0, 150, 340, 90);
+
+            // Bongkahan Es Terapung Besar Kiri (x: 85, y: 150)
+            ctx.fillStyle = "#f8fafc";
+            ctx.fillRect(20, 140, 140, 30);
+            ctx.fillStyle = "#e2e8f0"; // Bayangan es bawah
+            ctx.fillRect(20, 170, 140, 10);
+
+            // Beruang Kutub Putih Besar di Kiri (x: 85, y: 150)
+            if (!diffs.some(d => d.name === "Beruang Kutub")) {
+                ctx.fillStyle = "#ffffff"; // Putih salju beruang kutub nyata
+                ctx.fillRect(55, 115, 45, 26); // Badan
+                ctx.beginPath();
+                ctx.arc(102, 115, 10, 0, 2 * Math.PI); // Kepala
+                ctx.fill();
+                ctx.fillRect(60, 140, 8, 12); // Kaki depan
+                ctx.fillRect(88, 140, 8, 12); // Kaki belakang
+                ctx.fillStyle = "#000000"; // Mata & hidung hitam kecil
+                ctx.beginPath();
+                ctx.arc(104, 113, 1.5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Penguin Kecil di Atas Es Tengah (x: 180, y: 175)
+            if (!diffs.some(d => d.name === "Penguin Kecil")) {
+                ctx.fillStyle = "#0f172a"; // Badan hitam penguin
+                ctx.beginPath();
+                ctx.ellipse(180, 168, 6, 12, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#ffffff"; // Dada putih penguin
+                ctx.beginPath();
+                ctx.ellipse(180, 170, 4, 9, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#f97316"; // Paruh oranye
+                ctx.fillRect(182, 162, 4, 2);
+            }
+
+            // Singa Laut Abu-Abu Kanan Tebing (x: 275, y: 165)
+            ctx.fillStyle = "#94a3b8"; // Tebing batu es kanan
+            ctx.fillRect(230, 130, 90, 50);
+            if (!diffs.some(d => d.name === "Singa Laut")) {
+                ctx.fillStyle = "#475569"; // Abu-abu gelap singa laut
+                ctx.beginPath();
+                ctx.ellipse(265, 122, 14, 8, -Math.PI/12, 0, 2 * Math.PI); // Badan
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(252, 116, 6, 0, 2 * Math.PI); // Kepala menengadah
+                ctx.fill();
+            }
+
+            // Burung Camar Es Terbang (x: 120, y: 50)
+            if (!diffs.some(d => d.name === "Camar Es")) {
+                ctx.strokeStyle = "#64748b";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(110, 48, 6, Math.PI, 2 * Math.PI);
+                ctx.arc(122, 48, 6, Math.PI, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Daratan Es Terdepan bawah
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillRect(0, 210, 340, 30);
+        }
+
+        // LEVEL 6: GURUN PASIR HANGAT
+        function drawThemeAnimalsDesert(ctx, diffs) {
+            // Langit Gurun Kuning Oranye Panas Terik
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 160);
+            skyGrad.addColorStop(0, "#ea580c"); 
+            skyGrad.addColorStop(1, "#fed7aa"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Bukit Gurun Pasir Bergelombang (Dune)
+            ctx.fillStyle = "#fef08a";
+            ctx.beginPath();
+            ctx.arc(100, 240, 140, Math.PI, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#fde047";
+            ctx.beginPath();
+            ctx.arc(240, 240, 120, Math.PI, 2 * Math.PI);
+            ctx.fill();
+
+            // Burung Elang Gurun Terbang Gagah (x: 120, y: 45)
+            if (!diffs.some(d => d.name === "Elang Gurun")) {
+                ctx.strokeStyle = "#451a03";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(112, 43, 10, Math.PI, 2 * Math.PI);
+                ctx.arc(132, 43, 10, Math.PI, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Pohon Kaktus Berduri Hijau di Kanan (x: 280, y: 130)
+            ctx.fillStyle = "#15803d"; // Batang utama kaktus
+            ctx.fillRect(275, 110, 12, 80);
+            if (!diffs.some(d => d.name === "Kaktus Hijau")) {
+                // Cabang atas melengkung ke kiri kaktus
+                ctx.fillRect(260, 125, 16, 8);
+                ctx.fillRect(260, 110, 8, 20);
+            }
+
+            // Unta Gurun Cokelat Pasir di Kiri Tengah (x: 140, y: 145)
+            if (!diffs.some(d => d.name === "Unta Gurun")) {
+                ctx.fillStyle = "#b45309"; // Cokelat unta nyata
+                ctx.fillRect(115, 142, 34, 20); // Badan unta
+                ctx.fillRect(122, 130, 10, 15); // Punuk tinggi unta gurun
+                // Leher & Kepala unta
+                ctx.fillRect(142, 116, 8, 30);
+                ctx.fillRect(144, 110, 12, 8);
+                // Kaki unta
+                ctx.fillRect(118, 162, 4, 25);
+                ctx.fillRect(125, 162, 4, 25);
+                ctx.fillRect(138, 162, 4, 25);
+                ctx.fillRect(144, 162, 4, 25);
+            }
+
+            // Kadal Gurun di Kiri Bawah dekat Kaktus (x: 70, y: 190)
+            if (!diffs.some(d => d.name === "Kadal Gurun")) {
+                ctx.fillStyle = "#84cc16"; // Hijau zaitun kadal gurun
+                ctx.beginPath();
+                ctx.ellipse(70, 192, 12, 4, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                // Ekor kecil meliuk kadal
+                ctx.strokeStyle = "#84cc16";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(58, 192);
+                ctx.quadraticCurveTo(50, 196, 45, 192);
+                ctx.stroke();
+            }
+
+            // Kalajengking Merah di Pasir Kanan Bawah (x: 280, y: 195)
+            if (!diffs.some(d => d.name === "Kalajengking")) {
+                ctx.fillStyle = "#991b1b"; // Cokelat kemerahan kalajengking
+                ctx.beginPath();
+                ctx.ellipse(280, 194, 6, 4, 0, 0, 2 * Math.PI); // Badan
+                ctx.fill();
+                // Ekor melengkung kalajengking
+                ctx.strokeStyle = "#991b1b";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(274, 194);
+                ctx.quadraticCurveTo(266, 185, 270, 180);
+                ctx.stroke();
+            }
+
+            // Hamparan Pasir Terdepan Gurun
+            ctx.fillStyle = "#eab308";
+            ctx.fillRect(0, 195, 340, 45);
+        }
+
+        // LEVEL 7: KOLAM HUTAN BAMBU
+        function drawThemeAnimalsBamboo(ctx, diffs) {
+            // Latar Langit Biru Malam Kabut
+            ctx.fillStyle = "#0284c7";
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Rimbun Batang Bambu Hijau Bersekat di Latar Belakang Kiri Kanan
+            ctx.fillStyle = "#166534";
+            ctx.fillRect(20, 0, 8, 190);
+            ctx.fillRect(34, 0, 8, 190);
+            ctx.fillRect(280, 0, 10, 190);
+            ctx.fillRect(298, 0, 8, 190);
+            // Sekat putih tipis bambu
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(20, 60, 8, 1);
+            ctx.fillRect(20, 120, 8, 1);
+            ctx.fillRect(280, 50, 10, 1);
+            ctx.fillRect(280, 110, 10, 1);
+
+            // Matahari Terbit Kuning Lembut di Bambu (x: 50, y: 45)
+            const sunOrange = diffs.some(d => d.name === "Matahari Terbit Bambu");
+            ctx.fillStyle = sunOrange ? "#f97316" : "#fef08a";
+            ctx.beginPath();
+            ctx.arc(50, 45, 16, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Kolam Air Hutan Bambu Jernih di Bawah
+            ctx.fillStyle = "#0891b2";
+            ctx.fillRect(0, 180, 340, 60);
+
+            // Panda Lucu Berwarna Hitam Putih di Tengah (x: 120, y: 135)
+            if (!diffs.some(d => d.name === "Panda Lucu")) {
+                ctx.fillStyle = "#ffffff"; // Tubuh putih panda
+                ctx.beginPath();
+                ctx.arc(120, 124, 11, 0, 2 * Math.PI); // Kepala putih
+                ctx.fill();
+                ctx.fillRect(110, 135, 20, 18); // Badan putih
+                // Lengan & Telinga hitam panda
+                ctx.fillStyle = "#1e293b";
+                ctx.beginPath();
+                ctx.arc(111, 116, 3, 0, 2 * Math.PI); // Telinga kiri
+                ctx.arc(129, 116, 3, 0, 2 * Math.PI); // Telinga kanan
+                ctx.fill();
+                ctx.fillRect(107, 133, 7, 15); // Lengan kiri
+                ctx.fillRect(126, 133, 7, 15); // Lengan kanan
+                // Mata hitam khas panda
+                ctx.fillStyle = "#1e293b";
+                ctx.beginPath();
+                ctx.ellipse(116, 124, 3, 4, 0, 0, 2 * Math.PI);
+                ctx.ellipse(124, 124, 3, 4, 0, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Kura-Kura Air Kecil di Tepi Kolam Kiri (x: 80, y: 195)
+            if (!diffs.some(d => d.name === "Kura-Kura Air")) {
+                ctx.fillStyle = "#15803d"; // Cangkang kura-kura hijau tua
+                ctx.beginPath();
+                ctx.ellipse(80, 192, 10, 6, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#4ade80"; // Kepala kecil kura-kura hijau muda
+                ctx.beginPath();
+                ctx.arc(92, 192, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Kunang-Kunang Berpendar Hijau Terang di Kanan Kolam (x: 220, y: 175)
+            if (!diffs.some(d => d.name === "Kunang-Kunang")) {
+                ctx.fillStyle = "#a3e635"; // Lampu kunang-kunang bersinar nektar hijau terang
+                ctx.beginPath();
+                ctx.arc(220, 175, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "rgba(163, 230, 53, 0.4)"; // Pendaran cahaya luar kunang-kunang
+                ctx.beginPath();
+                ctx.arc(220, 175, 10, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Burung Pipit di Ranting Kanan (x: 280, y: 140)
+            if (!diffs.some(d => d.name === "Burung Pipit")) {
+                ctx.fillStyle = "#b45309"; // Cokelat burung pipit
+                ctx.beginPath();
+                ctx.ellipse(280, 142, 8, 5, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(285, 137, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#ea580c"; // Paruh burung pipit kecil
+                ctx.fillRect(289, 136, 3, 2);
+            }
+
+            // Tepian Tanah Rerumputan Kolam
+            ctx.fillStyle = "#15803d";
+            ctx.fillRect(0, 190, 340, 50);
+        }
+
+        // LEVEL 8: PADANG RUMPUT PEDESAAN
+        function drawThemeAnimalsFarm(ctx, diffs) {
+            // Langit Pedesaan Biru Muda Sehat
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 130);
+            skyGrad.addColorStop(0, "#bae6fd"); 
+            skyGrad.addColorStop(1, "#bae6fd"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Pagar Kayu Pedesaan Belakang Tengah (x: 120, y: 50)
+            if (!diffs.some(d => d.name === "Pagar Pedesaan")) {
+                ctx.fillStyle = "#d97706"; // Pagar cokelat pedesaan nyata
+                ctx.fillRect(60, 125, 200, 4); // Bilah pagar horisontal
+                ctx.fillRect(70, 115, 6, 25);  // Tiang vertikal 1
+                ctx.fillRect(130, 115, 6, 25); // Tiang vertikal 2
+                ctx.fillRect(190, 115, 6, 25); // Tiang vertikal 3
+                ctx.fillRect(250, 115, 6, 25); // Tiang vertikal 4
+            }
+
+            // Sapi Perah di Kiri (x: 85, y: 145)
+            if (!diffs.some(d => d.name === "Sapi Perah")) {
+                ctx.fillStyle = "#ffffff"; // Tubuh putih sapi perah
+                ctx.fillRect(55, 135, 34, 22); // Badan
+                ctx.beginPath();
+                ctx.arc(92, 130, 10, 0, 2 * Math.PI); // Kepala sapi putih
+                ctx.fill();
+                // Kaki sapi perah
+                ctx.fillRect(58, 157, 4, 15);
+                ctx.fillRect(82, 157, 4, 15);
+                // Bercak-bercak hitam sapi perah realistis
+                ctx.fillStyle = "#0f172a";
+                ctx.fillRect(60, 138, 7, 7);
+                ctx.fillRect(76, 142, 6, 6);
+                ctx.fillRect(90, 126, 4, 4);
+            }
+
+            // Domba Bulu di Tengah (x: 180, y: 170)
+            if (!diffs.some(d => d.name === "Domba Bulu")) {
+                ctx.fillStyle = "#f8fafc"; // Putih awan domba
+                ctx.beginPath();
+                ctx.arc(175, 165, 8, 0, 2 * Math.PI); // Awan bulu bagian tubuh depan
+                ctx.arc(185, 165, 10, 0, 2 * Math.PI); // Awan bulu bagian tubuh belakang
+                ctx.fill();
+                ctx.fillStyle = "#475569"; // Wajah abu-abu gelap domba imut
+                ctx.beginPath();
+                ctx.arc(167, 162, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                // Kaki ramping domba hitam
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(174, 175, 3, 10);
+                ctx.fillRect(182, 175, 3, 10);
+            }
+
+            // Kuda Cokelat Gagah di Kanan (x: 275, y: 135)
+            if (!diffs.some(d => d.name === "Kuda Cokelat")) {
+                ctx.fillStyle = "#7c2d12"; // Cokelat berkilau bulu kuda
+                ctx.fillRect(250, 130, 36, 22); // Badan kuda
+                ctx.fillRect(276, 110, 8, 25);  // Leher tegak kuda gagah
+                ctx.fillRect(276, 104, 14, 8);  // Kepala kuda
+                // Kaki kuda
+                ctx.fillRect(254, 152, 4, 25);
+                ctx.fillRect(260, 152, 4, 25);
+                ctx.fillRect(272, 152, 4, 25);
+                ctx.fillRect(278, 152, 4, 25);
+            }
+
+            // Ayam Jago Kecil Pedesaan (x: 210, y: 190)
+            if (!diffs.some(d => d.name === "Ayam Jago")) {
+                ctx.fillStyle = "#ea580c"; // Ayam oranye menyala
+                ctx.beginPath();
+                ctx.ellipse(210, 192, 6, 4, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#dc2626"; // Jengger merah kecil ayam jago
+                ctx.fillRect(212, 185, 3, 4);
+            }
+
+            // Rumput Padang Gembala Pedesaan Hijau Alami
+            ctx.fillStyle = "#22c55e";
+            ctx.fillRect(0, 195, 340, 45);
+        }
+
+        // LEVEL 9: HUTAN PINUS UTARA
+        function drawThemeAnimalsPine(ctx, diffs) {
+            // Langit Hutan Utara Kabut Biru Abu-abu
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 140);
+            skyGrad.addColorStop(0, "#cbd5e1"); 
+            skyGrad.addColorStop(1, "#f1f5f9"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Awan Hutan Utara Berselimut Kabut (x: 285, y: 40)
+            if (!diffs.some(d => d.name === "Awan Hutan Utara")) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+                ctx.beginPath();
+                ctx.arc(270, 45, 12, 0, 2 * Math.PI);
+                ctx.arc(285, 38, 16, 0, 2 * Math.PI);
+                ctx.arc(300, 45, 12, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Rimbun Pohon Pinus Kerucut Alami
+            ctx.fillStyle = "#1e3a1e"; // Batang pinus cokelat gelap belakang
+            ctx.fillRect(40, 100, 10, 100);
+            ctx.fillRect(180, 100, 12, 100);
+            ctx.fillRect(280, 100, 10, 100);
+            // Kerucut daun cemara hijau tua
+            ctx.fillStyle = "#14532d";
+            ctx.beginPath();
+            ctx.moveTo(15, 130); ctx.lineTo(45, 80); ctx.lineTo(75, 130); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(155, 110); ctx.lineTo(186, 60); ctx.lineTo(217, 110); ctx.closePath(); ctx.fill();
+
+            // Rusa Cokelat Bertanduk Indah di Kiri (x: 100, y: 135)
+            if (!diffs.some(d => d.name === "Rusa Tanduk")) {
+                ctx.fillStyle = "#ca8a04"; // Cokelat keemasan tubuh rusa
+                ctx.fillRect(80, 132, 28, 18); // Badan rusa
+                ctx.fillRect(98, 114, 6, 22);  // Leher rusa tegak
+                ctx.fillRect(98, 108, 12, 8);  // Kepala rusa
+                // Kaki ramping rusa
+                ctx.fillRect(83, 150, 3, 25);
+                ctx.fillRect(89, 150, 3, 25);
+                ctx.fillRect(99, 150, 3, 25);
+                ctx.fillRect(104, 150, 3, 25);
+                // Tanduk Rusa Indah Cokelat Gelap Realistis
+                ctx.strokeStyle = "#451a03";
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(102, 108); ctx.lineTo(106, 96); ctx.lineTo(112, 98); // Tanduk cabang 1
+                ctx.moveTo(102, 108); ctx.lineTo(98, 96);  ctx.lineTo(92, 98);  // Tanduk cabang 2
+                ctx.stroke();
+            }
+
+            // Burung Hantu di Atas Ranting Cemara Kiri (x: 40, y: 90)
+            if (!diffs.some(d => d.name === "Burung Hantu")) {
+                ctx.fillStyle = "#78350f"; // Burung hantu cokelat tua
+                ctx.beginPath();
+                ctx.arc(40, 85, 7, 0, 2 * Math.PI); // Kepala hantu
+                ctx.fill();
+                ctx.fillRect(34, 92, 12, 14); // Badan hantu bulat
+                // Sepasang mata kuning bulat burung hantu malam realistis
+                ctx.fillStyle = "#eab308";
+                ctx.beginPath();
+                ctx.arc(38, 85, 2, 0, 2 * Math.PI);
+                ctx.arc(42, 85, 2, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#000000";
+                ctx.beginPath();
+                ctx.arc(38, 85, 1, 0, 2 * Math.PI);
+                ctx.arc(42, 85, 1, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Tupai Pohon di Ranting Cemara Kanan (x: 240, y: 135)
+            if (!diffs.some(d => d.name === "Tupai Pohon")) {
+                ctx.fillStyle = "#ea580c"; // Tupai merah oranye
+                ctx.beginPath();
+                ctx.ellipse(240, 140, 7, 5, 0, 0, 2 * Math.PI); // Badan
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(245, 134, 4, 0, 2 * Math.PI); // Kepala
+                ctx.fill();
+                // Ekor lebat tupai melingkar ke atas
+                ctx.fillStyle = "#ea580c";
+                ctx.beginPath();
+                ctx.ellipse(234, 135, 4, 8, Math.PI/4, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Kelompok Jamur Merah Berbintik di Tanah Tengah (x: 170, y: 195)
+            if (!diffs.some(d => d.name === "Jamur Merah")) {
+                ctx.fillStyle = "#f1f5f9"; // Tangkai jamur putih
+                ctx.fillRect(168, 192, 4, 8);
+                ctx.fillStyle = "#ef4444"; // Tudung merah bintik jamur pinus
+                ctx.beginPath();
+                ctx.arc(170, 192, 6, Math.PI, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Tanah Hutan Cemara Bersalju Tipis
+            ctx.fillStyle = "#cbd5e1";
+            ctx.fillRect(0, 195, 340, 45);
+            ctx.fillStyle = "#1e3a1e"; // Area rerumputan hijau di bawah salju
+            ctx.fillRect(0, 195, 340, 8);
+        }
+
+        // LEVEL 10: RAWA AUSTRALIA (MAKSIMAL)
+        function drawThemeAnimalsAustralia(ctx, diffs) {
+            // Langit Senja Rawa Australia Merah Jingga
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 150);
+            skyGrad.addColorStop(0, "#ea580c"); 
+            skyGrad.addColorStop(1, "#fef08a"); 
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 340, 240);
+
+            // Matahari Rawa Australia Sore (x: 50, y: 40)
+            const sunOrange = diffs.some(d => d.name === "Matahari Rawa Australia");
+            ctx.fillStyle = sunOrange ? "#dc2626" : "#f97316"; 
+            ctx.beginPath();
+            ctx.arc(50, 40, 18, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Pepohonan Eukaliptus Rawa Australia di Sisi Kanan (x: 280, y: 100)
+            ctx.fillStyle = "#78350f"; // Batang eukaliptus cokelat ramping
+            ctx.fillRect(290, 0, 15, 200);
+            ctx.fillStyle = "#15803d"; // Rimbun daun eukaliptus bulat atas
+            ctx.beginPath();
+            ctx.arc(297, 30, 25, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Aliran Air Rawa Australia Keruh Alami di Tengah Bawah
+            ctx.fillStyle = "#0e7490";
+            ctx.fillRect(0, 175, 340, 65);
+
+            // Kangguru Cokelat Berdiri Megah di Kiri (x: 90, y: 140)
+            if (!diffs.some(d => d.name === "Kangguru")) {
+                ctx.fillStyle = "#b45309"; // Cokelat kangguru nyata
+                ctx.fillRect(75, 140, 24, 25); // Badan kangguru
+                ctx.fillRect(86, 118, 8, 25);  // Leher kangguru tegak
+                ctx.fillRect(86, 112, 14, 8);  // Kepala kangguru
+                // Telinga kelinci tegak kangguru
+                ctx.fillRect(86, 104, 3, 8);
+                // Kaki belakang kangguru melompat tebal
+                ctx.fillRect(72, 155, 12, 15);
+                ctx.fillRect(72, 167, 18, 4); // Cakar kaki bawah
+                // Ekor tebal kangguru penyeimbang melengkung ke kiri belakang
+                ctx.strokeStyle = "#b45309";
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(75, 155);
+                ctx.quadraticCurveTo(60, 165, 54, 158);
+                ctx.stroke();
+            }
+
+            // Koala Abu-abu Memeluk Eukaliptus Kanan (x: 280, y: 100)
+            if (!diffs.some(d => d.name === "Koala Pohon")) {
+                ctx.fillStyle = "#94a3b8"; // Abu-abu bulu koala imut
+                ctx.beginPath();
+                ctx.arc(280, 100, 7, 0, 2 * Math.PI); // Kepala koala
+                ctx.fill();
+                ctx.fillRect(276, 106, 10, 15); // Badan nempel memeluk batang
+                // Telinga bulat koala nyata berbulu putih tipis
+                ctx.beginPath();
+                ctx.arc(274, 96, 3, 0, 2 * Math.PI);
+                ctx.arc(286, 96, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Burung Emu Australia Tinggi di Rawa (x: 215, y: 145)
+            if (!diffs.some(d => d.name === "Burung Emu")) {
+                ctx.fillStyle = "#7c2d12"; // Cokelat emu tinggi
+                ctx.beginPath();
+                ctx.ellipse(215, 148, 8, 12, 0, 0, 2 * Math.PI); // Badan emu
+                ctx.fill();
+                // Leher ramping panjang emu abu-abu kebiruan
+                ctx.strokeStyle = "#64748b";
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(215, 138);
+                ctx.lineTo(215, 115); // Leher tegak emu tinggi
+                ctx.stroke();
+                // Kepala kecil emu
+                ctx.fillStyle = "#64748b";
+                ctx.beginPath();
+                ctx.arc(215, 111, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                // Kaki panjang emu kokoh
+                ctx.fillStyle = "#64748b";
+                ctx.fillRect(212, 160, 2.5, 20);
+                ctx.fillRect(216, 160, 2.5, 20);
+            }
+
+            // Platipus Berparuh Bebek Berenang Anggun di Bawah Kolam (x: 160, y: 195)
+            if (!diffs.some(d => d.name === "Platipus Air")) {
+                ctx.fillStyle = "#78350f"; // Cokelat platipus nyata
+                ctx.beginPath();
+                ctx.ellipse(160, 200, 12, 6, 0, 0, 2 * Math.PI); // Badan platipus
+                ctx.fill();
+                // Ekor lebar mendayung platipus
+                ctx.fillRect(142, 198, 8, 4);
+                // Paruh bebek hitam
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(170, 197, 6, 4);
+            }
+
+            // Tepian Tanah Rawa Gambut Alami Australia
+            ctx.fillStyle = "#ca8a04";
+            ctx.fillRect(0, 175, 340, 12);
+        }
+
+        function setupDiffClickEvents() {
+            const canvasLeft = document.getElementById('diff-canvas-left');
+            const canvasRight = document.getElementById('diff-canvas-right');
+
+            function handleDiffClick(e, isRight) {
+                if (isModalActive) return;
+                initAudio();
+
+                const canvas = isRight ? canvasRight : canvasLeft;
+                const rect = canvas.getBoundingClientRect();
+                
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const x = (clientX - rect.left) * (canvas.width / rect.width);
+                const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+                let foundIndex = -1;
+                for (let i = 0; i < activeDifferences.length; i++) {
+                    const diff = activeDifferences[i];
+                    const dist = Math.hypot(x - diff.x, y - diff.y);
+                    
+                    if (dist < (diff.r + 20)) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+
+                if (foundIndex !== -1) {
+                    const matchedDiff = activeDifferences[foundIndex];
+                    const alreadyFound = foundDifferences.some(d => d.name === matchedDiff.name);
+                    
+                    if (!alreadyFound) {
+                        foundDifferences.push(matchedDiff);
+                        diffScore += 50; 
+                        
+                        const remaining = totalDifferences - foundDifferences.length;
+                        document.getElementById('diff-needed-val').textContent = remaining;
+
+                        placeMarkerOnScene(matchedDiff.x, matchedDiff.y);
+                        playSuccessSound();
+
+                        if (foundDifferences.length === totalDifferences) {
+                            playLevelWinSound();
+                            setTimeout(() => {
+                                // BATAS LEVEL 10 UNTUK MODE CARI PERBEDAAN
+                                if (diffLevelIndex >= 10) {
+                                    showCustomModal(
+                                        "Luar Biasa Jenius! 🧠👑",
+                                        `Selamat! Kamu telah menyelesaikan Level 10 maksimal pada permainan Cari Perbedaan dengan sangat teliti dan jeli! Kamu adalah juara sejati!`,
+                                        "🏆",
+                                        () => { backToHome(); }
+                                    );
+                                } else {
+                                    showCustomModal(
+                                        "Kejelian Luar Biasa! 🧠",
+                                        `Kamu berhasil menemukan semua perbedaan di level ini dengan sangat teliti!`,
+                                        "🔍",
+                                        () => {
+                                            diffLevelIndex++;
+                                            initDiffLevel();
+                                        }
+                                    );
+                                }
+                            }, 500);
+                        }
+                    }
+                }
+            }
+
+            canvasLeft.onmousedown = (e) => handleDiffClick(e, false);
+            canvasLeft.ontouchstart = (e) => { e.preventDefault(); handleDiffClick(e, false); };
+
+            canvasRight.onmousedown = (e) => handleDiffClick(e, true);
+            canvasRight.ontouchstart = (e) => { e.preventDefault(); handleDiffClick(e, true); };
+        }
+
+        function placeMarkerOnScene(x, y) {
+            const leftWrapper = document.getElementById('diff-left-wrapper');
+            const rightWrapper = document.getElementById('diff-right-wrapper');
+
+            const posX = (x / 340) * 100;
+            const posY = (y / 240) * 100;
+
+            const markerLeft = document.createElement('div');
+            markerLeft.className = 'diff-marker';
+            markerLeft.style.left = `${posX}%`;
+            markerLeft.style.top = `${posY}%`;
+            leftWrapper.appendChild(markerLeft);
+
+            const markerRight = document.createElement('div');
+            markerRight.className = 'diff-marker';
+            markerRight.style.left = `${posX}%`;
+            markerRight.style.top = `${posY}%`;
+            rightWrapper.appendChild(markerRight);
+        }
+
+        function giveDiffClue() {
+            if (isModalActive) return;
+
+            const unsolved = activeDifferences.filter(d => !foundDifferences.some(f => f.name === d.name));
+            if (unsolved.length === 0) return;
+
+            const targetDiff = unsolved[Math.floor(Math.random() * unsolved.length)];
+
+            placeMarkerOnScene(targetDiff.x, targetDiff.y);
+            
+            foundDifferences.push(targetDiff);
+            const remaining = totalDifferences - foundDifferences.length;
+            document.getElementById('diff-needed-val').textContent = remaining;
+
+            playSuccessSound();
+            showClueToast(`Satu perbedaan berupa "${targetDiff.desc}" telah ditunjukkan oleh bantuan!`);
+
+            if (foundDifferences.length === totalDifferences) {
+                playLevelWinSound();
+                setTimeout(() => {
+                    // BATAS LEVEL 10 UNTUK MODE CARI PERBEDAAN (DENGAN TOMBOL BANTUAN)
+                    if (diffLevelIndex >= 10) {
+                        showCustomModal(
+                            "Selamat Tamat! 👑",
+                            `Luar biasa teliti! Semua perbedaan selesai dipecahkan hingga Level 10 maksimal. Kamu memiliki mata elang yang sangat jeli!`,
+                            "🏆",
+                            () => { backToHome(); }
+                        );
+                    } else {
+                        showCustomModal(
+                            "Luar Biasa!",
+                            `Semua perbedaan berhasil dipecahkan! Persiapkan matamu untuk level berikutnya.`,
+                            "🏆",
+                            () => {
+                                diffLevelIndex++;
+                                initDiffLevel();
+                            }
+                        );
+                    }
+                }, 500);
+            }
+        }
+    </script>
+</body>
+</html>
